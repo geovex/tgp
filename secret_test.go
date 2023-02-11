@@ -6,6 +6,7 @@ import (
 )
 
 func TestSecretSimple(t *testing.T) {
+	//lint:ignore SA4006 this is a test
 	secretBytes, err := hex.DecodeString("000102030405060708090a0b0c0d0e0f")
 	secret, err := NewSecret(secretBytes)
 	if err != nil {
@@ -17,6 +18,7 @@ func TestSecretSimple(t *testing.T) {
 }
 
 func TestSecretSecured(t *testing.T) {
+	//lint:ignore SA4006 this is a test
 	secretBytes, err := hex.DecodeString("dd000102030405060708090a0b0c0d0e0f")
 	secret, err := NewSecret(secretBytes)
 	if err != nil {
@@ -28,6 +30,7 @@ func TestSecretSecured(t *testing.T) {
 }
 
 func TestSecretFakeTls(t *testing.T) {
+	//lint:ignore SA4006 this is a test
 	secretBytes, err := hex.DecodeString("ee000102030405060708090a0b0c0d0e0f676f6f676c652e636f6d")
 	secret, err := NewSecret(secretBytes)
 	if err != nil {
@@ -42,6 +45,7 @@ func TestSecretFakeTls(t *testing.T) {
 }
 
 func TeestSecretError(t *testing.T) {
+	//lint:ignore SA4006 this is a test
 	secretBytes, err := hex.DecodeString("dd")
 	_, err = NewSecret(secretBytes)
 	if err == nil {
