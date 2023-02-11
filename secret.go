@@ -11,8 +11,8 @@ const simpleSecretLen = 16
 
 const (
 	Simple  SecretType = 1
-	Secured            = 2
-	FakeTLS            = 3
+	Secured SecretType = 2
+	FakeTLS SecretType = 3
 )
 
 type Secret struct {
@@ -53,6 +53,6 @@ func NewSecret(secret []byte) (*Secret, error) {
 			Fakehost:  string(secret[simpleSecretLen+1:]),
 		}, nil
 	default:
-		return nil, fmt.Errorf("Incorrect secret length: %d", len(secret))
+		return nil, fmt.Errorf("incorrect secret length: %d", len(secret))
 	}
 }

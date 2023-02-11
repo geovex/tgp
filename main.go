@@ -19,31 +19,6 @@ type Config struct {
 }
 
 func handleConnection(conn net.Conn, secret *Secret) {
-	// var initialPacket [initialHeaderSize]byte
-	// _, err := io.ReadFull(conn, initialPacket[:])
-	// if err != nil {
-	// 	conn.Close()
-	// 	return
-	// }
-	// // dump header
-	// println("header: " + hex.EncodeToString(initialPacket[:]))
-	// c, err := obfuscatedCryptoFromHeader(initialPacket, secret)
-	// if err != nil {
-	// 	println(err.Error())
-	// 	conn.Close()
-	// 	return
-	// }
-	// if true {
-	// 	buf := make([]byte, 4)
-	// 	err = c.ReadExact(buf, conn)
-
-	// 	if err != nil {
-	// 		println(err.Error())
-	// 		conn.Close()
-	// 		return
-	// 	}
-	// 	fmt.Printf("first packet bytes: %x %x %x %x\n", buf[0], buf[1], buf[2], buf[3])
-	// }
 	obfuscatedRoutine, err := obfuscatedRouterFromStream(conn, secret)
 	if err != nil {
 		println(err.Error())
