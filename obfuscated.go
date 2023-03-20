@@ -4,26 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"net"
 )
-
-const dc_port = "443"
-
-var dc_ip4 = [...]string{
-	"149.154.175.50",
-	"149.154.167.51",
-	"149.154.175.100",
-	"149.154.167.91",
-	"149.154.171.5",
-}
-
-// var dc_ip6 = [...]string{
-// 	"2001:b28:f23d:f001::a",
-// 	"2001:67c:04e8:f002::a",
-// 	"2001:b28:f23d:f003::a",
-// 	"2001:67c:04e8:f004::a",
-// 	"2001:b28:f23f:f005::a",
-// }
 
 const initialHeaderSize = 64
 
@@ -42,7 +23,7 @@ type obfuscatedRouter struct {
 	writerJoinChannel chan error
 }
 
-func obfuscatedRouterFromStream(stream io.ReadWriteCloser, secret *Secret) (r *obfuscatedRouter, err error) {
+func obfuscatedRouterFromStream(stream io.ReadWriteCloser, secret *Secret, dcConn DCConnector) (r *obfuscatedRouter, err error) {
 	var initialPacket [initialHeaderSize]byte
 	_, err = io.ReadFull(stream, initialPacket[:])
 	if err != nil {
@@ -63,7 +44,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, secret *Secret) (r *o
 		return nil, fmt.Errorf("invalid dc %d", cryptClient.dc)
 	}
 	//connect to dc
-	dcConnection, err := connectDC(int(cryptClient.dc))
+	dcConnection, err := dcConn.ConnectDC(int(cryptClient.dc))
 	if err != nil {
 		return nil, err
 	}
@@ -129,19 +110,4 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, secret *Secret) (r *o
 func (r obfuscatedRouter) Wait() {
 	<-r.readerJoinChannel
 	<-r.writerJoinChannel
-}
-
-func connectDC(dc int) (c net.Conn, err error) {
-	if dc < 0 {
-		dc = -dc
-	}
-	if dc < 1 || dc > len(dc_ip4) {
-		return nil, fmt.Errorf("invalid dc %d", dc)
-	}
-	dc_addr := dc_ip4[dc-1] + ":" + dc_port
-	c, err = net.Dial("tcp", dc_addr)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
 }
