@@ -30,6 +30,7 @@ func handleConnection(conn net.Conn, dcConn DCConnector, userDB *Users) {
 		return
 	}
 	obfuscatedRoutine.Wait()
+	fmt.Printf("Client finished: %s\n", obfuscatedRoutine.user)
 }
 
 func main() {

@@ -21,6 +21,7 @@ type obfuscatedRouter struct {
 	stream            io.ReadWriteCloser
 	readerJoinChannel chan error
 	writerJoinChannel chan error
+	user              string
 }
 
 func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, users *Users) (r *obfuscatedRouter, err error) {
@@ -30,6 +31,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 		return nil, err
 	}
 	var cryptClient *obfuscatedClientCtx
+	var user string
 	for u, s := range users.users {
 		runtime.Gosched()
 		if isWrongNonce(initialPacket) {
@@ -48,6 +50,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 			continue
 		}
 		fmt.Printf("Client connected %s\n", u)
+		user = u
 		break
 	}
 	if cryptClient == nil {
@@ -73,7 +76,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 		for {
 			size, err := stream.Read(buf)
 			if err != nil {
-				fmt.Printf("reader broken, size: %d\n", size)
+				//fmt.Printf("reader broken, size: %d, error: %s\n", size, err.Error())
 				readerJoinChannel <- err
 				return
 			}
@@ -93,7 +96,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 		for {
 			size, err := dcConnection.Read(buf)
 			if err != nil {
-				fmt.Printf("writer broken, size: %d\n", size)
+				//fmt.Printf("writer broken, size: %d, error: %s\n", size, err.Error())
 				writerJoinChannel <- err
 				return
 			}
@@ -113,6 +116,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 		stream:            stream,
 		readerJoinChannel: readerJoinChannel,
 		writerJoinChannel: writerJoinChannel,
+		user:              user,
 	}
 	return r, nil
 }
