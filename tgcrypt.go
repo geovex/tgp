@@ -7,7 +7,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"runtime"
@@ -64,12 +63,21 @@ func obfuscatedClientCtxFromHeader(header [initialHeaderSize]byte, secret *Secre
 	// basicaly you need to appy decrypt to all incoming packet and take last 8 bytes
 	buf := make([]byte, 64)
 	fromClientStream.XORKeyStream(buf, header[:])
-	fmt.Printf("Decrypted tail %s\n", hex.EncodeToString(buf[56:]))
+	// fmt.Printf("Decrypted tail %s\n", hex.EncodeToString(buf[56:]))
 	protocol := buf[56]
+	switch protocol {
+	case abridged, intermediate, padded:
+		break
+	default:
+		return nil, fmt.Errorf("invalid protocol %d", protocol)
+	}
+	if buf[57] != protocol || buf[58] != protocol || buf[59] != protocol {
+		return nil, fmt.Errorf("invalid protocol fields %d %d %d %d", buf[56], buf[57], buf[58], buf[59])
+	}
 	dc := int16(buf[60]) + (int16(buf[61]) << 8)
 	var random [2]byte
 	copy(random[:], buf[62:64])
-	fmt.Printf("protocol: %x. DC %x\n", protocol, dc)
+	// fmt.Printf("protocol: %x. DC %x\n", protocol, dc)
 	c = &obfuscatedClientCtx{
 		header:     header,
 		secret:     secret,

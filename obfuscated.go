@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
 	"io"
 	"runtime"
@@ -45,12 +44,6 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 			continue
 		}
 		// basic afterchecks
-		switch cryptClient.protocol {
-		case abridged, intermediate, padded:
-			break
-		default:
-			continue
-		}
 		if int(cryptClient.dc) > len(dc_ip4) || int(cryptClient.dc) < -len(dc_ip4) {
 			continue
 		}
@@ -58,7 +51,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 		break
 	}
 	if cryptClient == nil {
-		return nil, fmt.Errorf("no client found")
+		return nil, fmt.Errorf("user not found by secret")
 	}
 	//connect to dc
 	dcConnection, err := dcConn.ConnectDC(int(cryptClient.dc))
@@ -85,7 +78,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 				return
 			}
 			cryptClient.decryptNext(buf[:size])
-			fmt.Printf("cl dec: %s\n", hex.EncodeToString(buf[:size]))
+			// fmt.Printf("cl dec: %s\n", hex.EncodeToString(buf[:size]))
 			cryptDc.encryptNext(buf[:size])
 			_, err = dcConnection.Write(buf[:size])
 			if err != nil {
@@ -105,7 +98,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 				return
 			}
 			cryptDc.decryptNext(buf[:size])
-			fmt.Printf("dc dec: %s\n", hex.EncodeToString(buf[:size]))
+			// fmt.Printf("dc dec: %s\n", hex.EncodeToString(buf[:size]))
 			cryptClient.encryptNext(buf[:size])
 			_, err = stream.Write(buf[:size])
 			if err != nil {
