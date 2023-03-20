@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"runtime"
 )
 
 const initialHeaderSize = 64
@@ -23,25 +24,41 @@ type obfuscatedRouter struct {
 	writerJoinChannel chan error
 }
 
-func obfuscatedRouterFromStream(stream io.ReadWriteCloser, secret *Secret, dcConn DCConnector) (r *obfuscatedRouter, err error) {
+func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, users *Users) (r *obfuscatedRouter, err error) {
 	var initialPacket [initialHeaderSize]byte
 	_, err = io.ReadFull(stream, initialPacket[:])
 	if err != nil {
 		return nil, err
 	}
-	cryptClient, err := obfuscatedClientCtxFromHeader(initialPacket, secret)
-	if err != nil {
-		return nil, err
-	}
-	// basic afterchecks
-	switch cryptClient.protocol {
-	case abridged, intermediate, padded:
+	var cryptClient *obfuscatedClientCtx
+	for u, s := range users.users {
+		runtime.Gosched()
+		if isWrongNonce(initialPacket) {
+			continue
+		}
+		secret, err := NewSecretHex(s)
+		if err != nil {
+			continue
+		}
+		cryptClient, err = obfuscatedClientCtxFromHeader(initialPacket, secret)
+		if err != nil {
+			continue
+		}
+		// basic afterchecks
+		switch cryptClient.protocol {
+		case abridged, intermediate, padded:
+			break
+		default:
+			continue
+		}
+		if int(cryptClient.dc) > len(dc_ip4) || int(cryptClient.dc) < -len(dc_ip4) {
+			continue
+		}
+		fmt.Printf("Client connected %s\n", u)
 		break
-	default:
-		return nil, fmt.Errorf("invalid protocol %d", cryptClient.protocol)
 	}
-	if int(cryptClient.dc) > len(dc_ip4) || int(cryptClient.dc) < -len(dc_ip4) {
-		return nil, fmt.Errorf("invalid dc %d", cryptClient.dc)
+	if cryptClient == nil {
+		return nil, fmt.Errorf("no client found")
 	}
 	//connect to dc
 	dcConnection, err := dcConn.ConnectDC(int(cryptClient.dc))
