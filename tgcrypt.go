@@ -107,6 +107,18 @@ type dcCtx struct {
 	fromDc cipher.Stream
 }
 
+func isWrongNonce(nonce [initialHeaderSize]byte) bool {
+	for _, s := range wrongNonceStarters {
+		if bytes.Equal(nonce[:len(s)], s) {
+			return true
+		}
+	}
+	if bytes.Equal(nonce[4:8], []byte{0, 0, 0, 0}) {
+		return true
+	}
+	return false
+}
+
 func genHeader() (packet [initialHeaderSize]byte, err error) {
 	// init := (56 random bytes) + protocol + dc + (2 random bytes)
 	for {
@@ -115,12 +127,7 @@ func genHeader() (packet [initialHeaderSize]byte, err error) {
 			return
 		}
 		runtime.Gosched()
-		for _, s := range wrongNonceStarters {
-			if bytes.Equal(packet[:len(s)], s) {
-				continue
-			}
-		}
-		if bytes.Equal(packet[4:8], []byte{0, 0, 0, 0}) {
+		if isWrongNonce(packet) {
 			continue
 		}
 		return
