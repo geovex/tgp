@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
 
 	"github.com/BurntSushi/toml"
 )
@@ -34,8 +36,18 @@ func handleConnection(conn net.Conn, dcConn DCConnector, userDB *Users) {
 }
 
 func main() {
+	var configData []byte
+	if len(os.Args) > 1 {
+		var err error
+		configData, err = ioutil.ReadFile(os.Args[1])
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		configData = []byte(defaultConfig)
+	}
 	c := &Config{}
-	_, err := toml.Decode(defaultConfig, &c)
+	_, err := toml.Decode(string(configData), &c)
 	if err != nil {
 		panic(err)
 	}
