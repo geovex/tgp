@@ -121,10 +121,7 @@ func isWrongNonce(nonce [initialHeaderSize]byte) bool {
 			return true
 		}
 	}
-	if bytes.Equal(nonce[4:8], []byte{0, 0, 0, 0}) {
-		return true
-	}
-	return false
+	return bytes.Equal(nonce[4:8], []byte{0, 0, 0, 0})
 }
 
 func genHeader() (packet [initialHeaderSize]byte, err error) {
