@@ -68,6 +68,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 	}
 	readerJoinChannel := make(chan error, 1)
 	go func() {
+		defer dcConnection.Close()
 		_, err = dcConnection.Write(cryptDc.nonce[:])
 		if err != nil {
 			readerJoinChannel <- err
@@ -93,6 +94,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 	}()
 	writerJoinChannel := make(chan error, 1)
 	go func() {
+		defer dcConnection.Close()
 		buf := make([]byte, 2048)
 		for {
 			size, err := dcConnection.Read(buf)
