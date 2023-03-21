@@ -25,6 +25,7 @@ type obfuscatedRouter struct {
 }
 
 func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, users *Users) (r *obfuscatedRouter, err error) {
+	defer stream.Close()
 	var initialPacket [initialHeaderSize]byte
 	_, err = io.ReadFull(stream, initialPacket[:])
 	if err != nil {
@@ -124,4 +125,13 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 func (r obfuscatedRouter) Wait() {
 	<-r.readerJoinChannel
 	<-r.writerJoinChannel
+}
+
+func handleObfuscated(stream io.ReadWriteCloser, dcConn DCConnector, users *Users) error {
+	r, err := obfuscatedRouterFromStream(stream, dcConn, users)
+	if err != nil {
+		return err
+	}
+	r.Wait()
+	return nil
 }
