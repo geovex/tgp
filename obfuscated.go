@@ -25,7 +25,6 @@ type obfuscatedRouter struct {
 }
 
 func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, users *Users) (r *obfuscatedRouter, err error) {
-	defer stream.Close()
 	var initialPacket [initialHeaderSize]byte
 	_, err = io.ReadFull(stream, initialPacket[:])
 	if err != nil {
@@ -68,6 +67,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 	}
 	readerJoinChannel := make(chan error, 1)
 	go func() {
+		defer stream.Close()
 		defer dcConnection.Close()
 		_, err = dcConnection.Write(cryptDc.nonce[:])
 		if err != nil {
@@ -94,6 +94,7 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 	}()
 	writerJoinChannel := make(chan error, 1)
 	go func() {
+		defer stream.Close()
 		defer dcConnection.Close()
 		buf := make([]byte, 2048)
 		for {
