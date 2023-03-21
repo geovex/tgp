@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 
 	"github.com/BurntSushi/toml"
@@ -26,7 +25,7 @@ type Config struct {
 func readConfig(path string) (*Config, error) {
 	var configData []byte
 	var config Config
-	configData, err := ioutil.ReadFile(os.Args[1])
+	configData, err := os.ReadFile(os.Args[1])
 	if err != nil {
 		return nil, err
 	}
