@@ -26,13 +26,17 @@ type Config struct {
 }
 
 func handleConnection(conn net.Conn, dcConn DCConnector, userDB *Users) {
-	obfuscatedRoutine, err := obfuscatedRouterFromStream(conn, dcConn, userDB)
-	if err != nil {
-		println(err.Error())
-		return
+	handleObfuscated(conn, dcConn, userDB)
+}
+
+func listenForConnections(listener net.Listener, dcc DCConnector, userDB *Users) error {
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			return err
+		}
+		go handleConnection(conn, dcc, userDB)
 	}
-	obfuscatedRoutine.Wait()
-	fmt.Printf("Client finished: %s\n", obfuscatedRoutine.user)
 }
 
 func main() {
@@ -59,6 +63,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer listener.Close()
 	var userDB *Users
 	if c.Users != nil && c.Secret == nil {
 		userDB = NewUsersMap(*c.Users)
@@ -73,11 +78,5 @@ func main() {
 	} else {
 		dcc = NewDcDirectConnector()
 	}
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			return
-		}
-		go handleConnection(conn, dcc, userDB)
-	}
+	_ = listenForConnections(listener, dcc, userDB)
 }
