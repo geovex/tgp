@@ -32,6 +32,13 @@ type obfuscatedClientCtx struct {
 	toClient   cipher.Stream
 }
 
+const (
+	abridged     = 0xef
+	intermediate = 0xee //0xeeeeeeee
+	padded       = 0xdd //0xdddddddd
+	full         = 0
+)
+
 func obfuscatedClientCtxFromHeader(header [initialHeaderSize]byte, secret *Secret) (c *obfuscatedClientCtx, err error) {
 	encKey := header[8:40]
 	encIV := header[40:56]

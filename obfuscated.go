@@ -3,32 +3,17 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"runtime"
 )
 
 const initialHeaderSize = 64
 
-const (
-	abridged     = 0xef
-	intermediate = 0xee //0xeeeeeeee
-	padded       = 0xdd //0xdddddddd
-	full         = 0
-)
-
-type obfuscatedRouter struct {
-	cryptClient       *obfuscatedClientCtx
-	cryptDc           *dcCtx
-	stream            io.ReadWriteCloser
-	readerJoinChannel chan error
-	writerJoinChannel chan error
-	user              string
-}
-
-func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, users *Users) (r *obfuscatedRouter, err error) {
+func handleObfuscated(stream net.Conn, dcConn DCConnector, users *Users) (err error) {
 	var initialPacket [initialHeaderSize]byte
 	_, err = io.ReadFull(stream, initialPacket[:])
 	if err != nil {
-		return nil, err
+		return
 	}
 	var cryptClient *obfuscatedClientCtx
 	var user string
@@ -49,34 +34,40 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 		if int(cryptClient.dc) > len(dc_ip4) || int(cryptClient.dc) < -len(dc_ip4) {
 			continue
 		}
-		fmt.Printf("Client connected %s\n", u)
 		user = u
+		fmt.Printf("Client connected %s, protocol: %x\n", user, cryptClient.protocol)
 		break
 	}
 	if cryptClient == nil {
-		return nil, fmt.Errorf("user not found by secret")
+		return fmt.Errorf("user not found by secret")
 	}
 	//connect to dc
 	dcConnection, err := dcConn.ConnectDC(int(cryptClient.dc))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	cryptDc, err := dcCtxFromClient(int(cryptClient.dc), cryptClient.protocol)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	handleDirect(stream, cryptClient, dcConnection, cryptDc)
+	fmt.Printf("Client disconnected %s\n", user)
+	return nil
+}
+
+func handleDirect(client net.Conn, cryptClient *obfuscatedClientCtx, dc net.Conn, cryptDC *dcCtx) {
 	readerJoinChannel := make(chan error, 1)
 	go func() {
-		defer stream.Close()
-		defer dcConnection.Close()
-		_, err = dcConnection.Write(cryptDc.nonce[:])
+		defer client.Close()
+		defer dc.Close()
+		_, err := dc.Write(cryptDC.nonce[:])
 		if err != nil {
 			readerJoinChannel <- err
 			return
 		}
 		buf := make([]byte, 2048)
 		for {
-			size, err := stream.Read(buf)
+			size, err := client.Read(buf)
 			if err != nil {
 				//fmt.Printf("reader broken, size: %d, error: %s\n", size, err.Error())
 				readerJoinChannel <- err
@@ -84,8 +75,8 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 			}
 			cryptClient.decryptNext(buf[:size])
 			// fmt.Printf("cl dec: %s\n", hex.EncodeToString(buf[:size]))
-			cryptDc.encryptNext(buf[:size])
-			_, err = dcConnection.Write(buf[:size])
+			cryptDC.encryptNext(buf[:size])
+			_, err = dc.Write(buf[:size])
 			if err != nil {
 				readerJoinChannel <- err
 				return
@@ -94,47 +85,26 @@ func obfuscatedRouterFromStream(stream io.ReadWriteCloser, dcConn DCConnector, u
 	}()
 	writerJoinChannel := make(chan error, 1)
 	go func() {
-		defer stream.Close()
-		defer dcConnection.Close()
+		defer client.Close()
+		defer dc.Close()
 		buf := make([]byte, 2048)
 		for {
-			size, err := dcConnection.Read(buf)
+			size, err := dc.Read(buf)
 			if err != nil {
 				//fmt.Printf("writer broken, size: %d, error: %s\n", size, err.Error())
 				writerJoinChannel <- err
 				return
 			}
-			cryptDc.decryptNext(buf[:size])
+			cryptDC.decryptNext(buf[:size])
 			// fmt.Printf("dc dec: %s\n", hex.EncodeToString(buf[:size]))
 			cryptClient.encryptNext(buf[:size])
-			_, err = stream.Write(buf[:size])
+			_, err = client.Write(buf[:size])
 			if err != nil {
 				writerJoinChannel <- err
 				return
 			}
 		}
 	}()
-	r = &obfuscatedRouter{
-		cryptClient:       cryptClient,
-		cryptDc:           cryptDc,
-		stream:            stream,
-		readerJoinChannel: readerJoinChannel,
-		writerJoinChannel: writerJoinChannel,
-		user:              user,
-	}
-	return r, nil
-}
-
-func (r obfuscatedRouter) Wait() {
-	<-r.readerJoinChannel
-	<-r.writerJoinChannel
-}
-
-func handleObfuscated(stream io.ReadWriteCloser, dcConn DCConnector, users *Users) error {
-	r, err := obfuscatedRouterFromStream(stream, dcConn, users)
-	if err != nil {
-		return err
-	}
-	r.Wait()
-	return nil
+	<-readerJoinChannel
+	<-writerJoinChannel
 }
