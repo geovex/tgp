@@ -7,8 +7,6 @@ import (
 	"runtime"
 )
 
-const initialHeaderSize = 64
-
 func handleObfuscated(stream net.Conn, dcConn DCConnector, users *Users) (err error) {
 	var initialPacket [initialHeaderSize]byte
 	_, err = io.ReadFull(stream, initialPacket[:])
