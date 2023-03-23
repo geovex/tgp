@@ -7,13 +7,14 @@ import (
 	"runtime"
 )
 
-func handleObfuscated(stream net.Conn, dcConn DCConnector, users *Users) (err error) {
+func handleSimple(stream net.Conn, dcConn DCConnector, users *Users) (err error) {
+	defer stream.Close()
 	var initialPacket [initialHeaderSize]byte
 	_, err = io.ReadFull(stream, initialPacket[:])
 	if err != nil {
 		return
 	}
-	var cryptClient *obfuscatedClientCtx
+	var cryptClient *simpleClientCtx
 	var user string
 	for u, s := range users.users {
 		runtime.Gosched()
@@ -24,7 +25,7 @@ func handleObfuscated(stream net.Conn, dcConn DCConnector, users *Users) (err er
 		if err != nil {
 			continue
 		}
-		cryptClient, err = obfuscatedClientCtxFromHeader(initialPacket, secret)
+		cryptClient, err = simpleClientCtxFromHeader(initialPacket, secret)
 		if err != nil {
 			continue
 		}
@@ -48,12 +49,12 @@ func handleObfuscated(stream net.Conn, dcConn DCConnector, users *Users) (err er
 	if err != nil {
 		return err
 	}
-	handleDirect(stream, cryptClient, dcConnection, cryptDc)
+	transceiveSimple(stream, cryptClient, dcConnection, cryptDc)
 	fmt.Printf("Client disconnected %s\n", user)
 	return nil
 }
 
-func handleDirect(client net.Conn, cryptClient *obfuscatedClientCtx, dc net.Conn, cryptDC *dcCtx) {
+func transceiveSimple(client net.Conn, cryptClient *simpleClientCtx, dc net.Conn, cryptDC *dcCtx) {
 	readerJoinChannel := make(chan error, 1)
 	go func() {
 		defer client.Close()

@@ -35,7 +35,7 @@ func decryptInit(packet [initialHeaderSize]byte) (decrypt [48]byte) {
 }
 
 // struct that handles encryption
-type obfuscatedClientCtx struct {
+type simpleClientCtx struct {
 	header     [initialHeaderSize]byte
 	secret     *Secret
 	protocol   uint8
@@ -52,7 +52,7 @@ const (
 	full         = 0
 )
 
-func obfuscatedClientCtxFromHeader(header [initialHeaderSize]byte, secret *Secret) (c *obfuscatedClientCtx, err error) {
+func simpleClientCtxFromHeader(header [initialHeaderSize]byte, secret *Secret) (c *simpleClientCtx, err error) {
 	encKey := header[8:40]
 	encIV := header[40:56]
 	decReversed := decryptInit(header)
@@ -98,7 +98,7 @@ func obfuscatedClientCtxFromHeader(header [initialHeaderSize]byte, secret *Secre
 	var random [2]byte
 	copy(random[:], buf[62:64])
 	// fmt.Printf("protocol: %x. DC %x\n", protocol, dc)
-	c = &obfuscatedClientCtx{
+	c = &simpleClientCtx{
 		header:     header,
 		secret:     secret,
 		fromClient: fromClientStream,
@@ -110,11 +110,11 @@ func obfuscatedClientCtxFromHeader(header [initialHeaderSize]byte, secret *Secre
 	return
 }
 
-func (c *obfuscatedClientCtx) decryptNext(buf []byte) {
+func (c *simpleClientCtx) decryptNext(buf []byte) {
 	c.fromClient.XORKeyStream(buf, buf)
 }
 
-func (c *obfuscatedClientCtx) encryptNext(buf []byte) {
+func (c *simpleClientCtx) encryptNext(buf []byte) {
 	c.toClient.XORKeyStream(buf, buf)
 }
 
