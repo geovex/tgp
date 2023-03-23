@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"io"
 	"runtime"
 )
 
@@ -148,7 +147,7 @@ func genHeader() (packet [initialHeaderSize]byte, err error) {
 	}
 }
 
-func dcCtxFromClient(dc int, protocol byte) (c *dcCtx, err error) {
+func dcCtxNew(dc int, protocol byte) (c *dcCtx, err error) {
 	header, err := genHeader()
 	if err != nil {
 		return
@@ -189,29 +188,4 @@ func (c *dcCtx) decryptNext(buf []byte) {
 
 func (c *dcCtx) encryptNext(buf []byte) {
 	c.toDc.XORKeyStream(buf, buf)
-}
-
-type encDecCtx interface {
-	decryptNext(buf []byte)
-	encryptNext(buf []byte)
-}
-
-type encDecStream struct {
-	encDec encDecCtx
-	stream io.ReadWriter
-}
-
-func (ed *encDecStream) Read(buf []byte) (size int, err error) {
-	size, err = ed.stream.Read(buf)
-	ed.encDec.decryptNext(buf[:size])
-	return
-}
-
-func (ed *encDecStream) Write(data []byte) (size int, err error) {
-	//write should not transform data
-	buf := make([]byte, len(data))
-	copy(buf, data)
-	size, err = ed.stream.Write(buf)
-	ed.encDec.encryptNext(buf[:size])
-	return
 }

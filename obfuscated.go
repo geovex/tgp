@@ -45,7 +45,7 @@ func handleSimple(stream net.Conn, dcConn DCConnector, users *Users) (err error)
 	if err != nil {
 		return err
 	}
-	cryptDc, err := dcCtxFromClient(int(cryptClient.dc), cryptClient.protocol)
+	cryptDc, err := dcCtxNew(int(cryptClient.dc), cryptClient.protocol)
 	if err != nil {
 		return err
 	}
