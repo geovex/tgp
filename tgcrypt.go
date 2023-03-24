@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
@@ -24,6 +25,21 @@ var wrongNonceStarters = [...][]byte{
 	{0xee, 0xee, 0xee, 0xee}, // intermediate header
 }
 
+var fakeTlsHeader = [...]byte{
+	0x16, // handhake record
+	0x03, // protocol version 3.1
+	0x01,
+	0x02, //payload length 512
+	0x00,
+	0x01, // handshake message type 1 (client hello)
+	0x00, // 0x1fc data follows
+	0x01,
+	0xfc,
+	0x03, // client version 3,3 means tls 1.2
+	0x03}
+
+const tlsHandshakeLen = 1 + 2 + 2 + 512 // handshake version payload_length length
+
 func decryptInit(packet [initialHeaderSize]byte) (decrypt [48]byte) {
 	k := 0
 	for i := 55; i >= 8; i-- {
@@ -35,7 +51,7 @@ func decryptInit(packet [initialHeaderSize]byte) (decrypt [48]byte) {
 
 // struct that handles encryption
 type simpleClientCtx struct {
-	header     [initialHeaderSize]byte
+	header     []byte
 	secret     *Secret
 	protocol   uint8
 	dc         int16
@@ -98,7 +114,7 @@ func simpleClientCtxFromHeader(header [initialHeaderSize]byte, secret *Secret) (
 	copy(random[:], buf[62:64])
 	// fmt.Printf("protocol: %x. DC %x\n", protocol, dc)
 	c = &simpleClientCtx{
-		header:     header,
+		header:     header[:],
 		secret:     secret,
 		fromClient: fromClientStream,
 		toClient:   toClientStream,
@@ -188,4 +204,34 @@ func (c *dcCtx) decryptNext(buf []byte) {
 
 func (c *dcCtx) encryptNext(buf []byte) {
 	c.toDc.XORKeyStream(buf, buf)
+}
+
+type fakeTlsCtx struct {
+	header [tlsHandshakeLen]byte
+	digest [32]byte
+	secret *Secret
+}
+
+func fakeTlsCtxFromTlsHeader(header [tlsHandshakeLen]byte, secret *Secret) (c *fakeTlsCtx, err error) {
+	digest := header[11 : 11+32]
+	msg := make([]byte, tlsHandshakeLen)
+	copy(msg, header[:])
+	for i := 11; i < 11+32; i++ {
+		msg[i] = 0
+	}
+	h := hmac.New(sha256.New, secret.RawSecret)
+	h.Write(msg)
+	digestCheck := h.Sum(nil)
+	// compare ignoring timestamp
+	if !bytes.Equal(digestCheck[:32-4], digest[:32-4]) {
+		return nil, fmt.Errorf("invalid client digest")
+	}
+	var digestArr [32]byte
+	copy(digestArr[:], digest)
+	c = &fakeTlsCtx{
+		header: header,
+		digest: digestArr,
+		secret: secret,
+	}
+	return c, nil
 }

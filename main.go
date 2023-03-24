@@ -7,7 +7,7 @@ import (
 )
 
 func handleConnection(conn net.Conn, dcConn DCConnector, userDB *Users) {
-	handleSimple(conn, dcConn, userDB)
+	handleObfuscated(conn, dcConn, userDB)
 }
 
 func listenForConnections(listener net.Listener, dcc DCConnector, userDB *Users) error {
