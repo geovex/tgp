@@ -1,4 +1,4 @@
-package main
+package obfuscated
 
 import (
 	"fmt"
@@ -25,18 +25,18 @@ var dc_ip4 = [...]string{
 // 	"2001:b28:f23f:f005::a",
 // }
 
-func normalizeDcNum(dc int) (int, error) {
+func normalizeDcNum(dc int16) (int16, error) {
 	if dc < 0 {
 		dc = -dc
 	}
-	if dc < 1 || dc > len(dc_ip4) {
+	if dc < 1 || dc > int16(len(dc_ip4)) {
 		return 0, fmt.Errorf("invalid dc number %d", dc)
 	}
 	return dc, nil
 }
 
 type DCConnector interface {
-	ConnectDC(dc int) (c net.Conn, err error)
+	ConnectDC(dc int16) (c net.Conn, err error)
 }
 
 type DcDirectConnector struct{}
@@ -45,7 +45,7 @@ func NewDcDirectConnector() *DcDirectConnector {
 	return &DcDirectConnector{}
 }
 
-func (dcc *DcDirectConnector) ConnectDC(dc int) (c net.Conn, err error) {
+func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	dc, err = normalizeDcNum(dc)
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func NewDcSocksConnector(socks5 string) *DcSocksConnector {
 	return &DcSocksConnector{socks5}
 }
 
-func (dsc *DcSocksConnector) ConnectDC(dc int) (c net.Conn, err error) {
+func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	dialer, err := proxy.SOCKS5("tcp", dsc.socks5, nil, proxy.Direct)
 	if err != nil {
 		return nil, err

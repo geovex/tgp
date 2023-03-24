@@ -1,44 +1,47 @@
-package main
+package obfuscated
 
 import (
 	"fmt"
 	"net"
 	"runtime"
+
+	"github.com/geovex/tgp/internal/config"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func handleSimple(initialPacket [initialHeaderSize]byte, stream net.Conn, dcConn DCConnector, users *Users) (err error) {
-	var cryptClient *simpleClientCtx
+func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn, dcConn DCConnector, users *config.Users) (err error) {
+	var cryptClient *tgcrypt.SimpleClientCtx
 	var user string
-	for u, s := range users.users {
+	for u, s := range users.Users {
 		runtime.Gosched()
-		if isWrongNonce(initialPacket) {
+		if tgcrypt.IsWrongNonce(initialPacket) {
 			continue
 		}
-		secret, err := NewSecretHex(s)
+		secret, err := tgcrypt.NewSecretHex(s)
 		if err != nil {
 			continue
 		}
-		cryptClient, err = simpleClientCtxFromHeader(initialPacket, secret)
+		cryptClient, err = tgcrypt.SimpleClientCtxFromHeader(initialPacket, secret)
 		if err != nil {
 			continue
 		}
 		// basic afterchecks
-		if int(cryptClient.dc) > len(dc_ip4) || int(cryptClient.dc) < -len(dc_ip4) {
+		if int(cryptClient.Dc) > len(dc_ip4) || int(cryptClient.Dc) < -len(dc_ip4) {
 			continue
 		}
 		user = u
-		fmt.Printf("Client connected %s, protocol: %x\n", user, cryptClient.protocol)
+		fmt.Printf("Client connected %s, protocol: %x\n", user, cryptClient.Protocol)
 		break
 	}
 	if cryptClient == nil {
 		return fmt.Errorf("user not found by secret")
 	}
 	//connect to dc
-	dcConnection, err := dcConn.ConnectDC(int(cryptClient.dc))
+	dcConnection, err := dcConn.ConnectDC(cryptClient.Dc)
 	if err != nil {
 		return err
 	}
-	cryptDc, err := dcCtxNew(int(cryptClient.dc), cryptClient.protocol)
+	cryptDc, err := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
 	if err != nil {
 		return err
 	}
@@ -47,12 +50,12 @@ func handleSimple(initialPacket [initialHeaderSize]byte, stream net.Conn, dcConn
 	return nil
 }
 
-func transceiveSimple(client net.Conn, cryptClient *simpleClientCtx, dc net.Conn, cryptDC *dcCtx) {
+func transceiveSimple(client net.Conn, cryptClient *tgcrypt.SimpleClientCtx, dc net.Conn, cryptDC *tgcrypt.DcCtx) {
 	readerJoinChannel := make(chan error, 1)
 	go func() {
 		defer client.Close()
 		defer dc.Close()
-		_, err := dc.Write(cryptDC.nonce[:])
+		_, err := dc.Write(cryptDC.Nonce[:])
 		if err != nil {
 			readerJoinChannel <- err
 			return
@@ -65,9 +68,9 @@ func transceiveSimple(client net.Conn, cryptClient *simpleClientCtx, dc net.Conn
 				readerJoinChannel <- err
 				return
 			}
-			cryptClient.decryptNext(buf[:size])
+			cryptClient.DecryptNext(buf[:size])
 			// fmt.Printf("cl dec: %s\n", hex.EncodeToString(buf[:size]))
-			cryptDC.encryptNext(buf[:size])
+			cryptDC.EncryptNext(buf[:size])
 			_, err = dc.Write(buf[:size])
 			if err != nil {
 				readerJoinChannel <- err
@@ -87,9 +90,9 @@ func transceiveSimple(client net.Conn, cryptClient *simpleClientCtx, dc net.Conn
 				writerJoinChannel <- err
 				return
 			}
-			cryptDC.decryptNext(buf[:size])
+			cryptDC.DecryptNext(buf[:size])
 			// fmt.Printf("dc dec: %s\n", hex.EncodeToString(buf[:size]))
-			cryptClient.encryptNext(buf[:size])
+			cryptClient.EncryptNext(buf[:size])
 			_, err = client.Write(buf[:size])
 			if err != nil {
 				writerJoinChannel <- err

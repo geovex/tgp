@@ -1,6 +1,8 @@
-package main
+package tgcrypt
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestGenInits(t *testing.T) {
 	//lint:ignore SA4006 this is a test
@@ -8,13 +10,13 @@ func TestGenInits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(init) != initialHeaderSize {
+	if len(init) != InitialHeaderSize {
 		t.Fatal("wrong init length")
 	}
 }
 
 func TestDecryptInit(t *testing.T) {
-	var init [initialHeaderSize]byte
+	var init [InitialHeaderSize]byte
 	for i := 0; i < len(init); i++ {
 		init[i] = byte(i)
 	}
