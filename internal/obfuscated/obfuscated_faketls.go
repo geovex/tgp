@@ -26,7 +26,6 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 	if err != nil {
 		return
 	}
-	fmt.Println("faketls detected")
 	var user string
 	for u, s := range users.Users {
 		runtime.Gosched()
@@ -39,7 +38,7 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 			continue
 		} else {
 			user = u
-			fmt.Printf("Client connected %s by faketls\n", user)
+			fmt.Printf("Client connected %s (faketls)\n", user)
 			break
 		}
 	}
@@ -47,6 +46,7 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 		return fmt.Errorf("user not found by secret")
 	}
 	transceiveFakeTls(stream, clientCtx, dcConn)
+	fmt.Printf("Client disconnected %s (faketls) \n", user)
 	return nil
 }
 
