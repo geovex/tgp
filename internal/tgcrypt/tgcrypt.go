@@ -8,6 +8,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"runtime"
 )
@@ -207,9 +208,10 @@ func (c *DcCtx) EncryptNext(buf []byte) {
 }
 
 type FakeTlsCtx struct {
-	Header [FakeTlsHandshakeLen]byte
-	Digest [32]byte
-	Secret *Secret
+	Header    [FakeTlsHandshakeLen]byte
+	Digest    [32]byte
+	Timestamp uint32
+	Secret    *Secret
 }
 
 func FakeTlsCtxFromTlsHeader(header [FakeTlsHandshakeLen]byte, secret *Secret) (c *FakeTlsCtx, err error) {
@@ -226,12 +228,18 @@ func FakeTlsCtxFromTlsHeader(header [FakeTlsHandshakeLen]byte, secret *Secret) (
 	if !bytes.Equal(digestCheck[:32-4], digest[:32-4]) {
 		return nil, fmt.Errorf("invalid client digest")
 	}
+	var timestampBuf [4]byte
+	for i := 32 - 4; i < 32; i++ {
+		timestampBuf[i-(32-4)] = digest[i] ^ digestCheck[i]
+	}
+	timestamp := binary.LittleEndian.Uint32(timestampBuf[:])
 	var digestArr [32]byte
 	copy(digestArr[:], digest)
 	c = &FakeTlsCtx{
-		Header: header,
-		Digest: digestArr,
-		Secret: secret,
+		Header:    header,
+		Digest:    digestArr,
+		Timestamp: timestamp,
+		Secret:    secret,
 	}
 	return c, nil
 }
