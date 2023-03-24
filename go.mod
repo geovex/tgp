@@ -1,4 +1,4 @@
-module tgp
+module github.com/geovex/tgp
 
 go 1.19
 

@@ -1,5 +1,5 @@
 // Generate init packet
-package main
+package tgcrypt
 
 import (
 	"bytes"
@@ -12,9 +12,9 @@ import (
 	"runtime"
 )
 
-const initialHeaderSize = 64
+const InitialHeaderSize = 64
 
-var wrongNonceStarters = [...][]byte{
+var WrongNonceStarters = [...][]byte{
 	{0xef},                   // abridged header
 	{0x48, 0x45, 0x41, 0x44}, //HEAD
 	{0x50, 0x4f, 0x53, 0x54}, //POST
@@ -25,7 +25,7 @@ var wrongNonceStarters = [...][]byte{
 	{0xee, 0xee, 0xee, 0xee}, // intermediate header
 }
 
-var fakeTlsHeader = [...]byte{
+var FakeTlsHeader = [...]byte{
 	0x16, // handhake record
 	0x03, // protocol version 3.1
 	0x01,
@@ -38,9 +38,9 @@ var fakeTlsHeader = [...]byte{
 	0x03, // client version 3,3 means tls 1.2
 	0x03}
 
-const tlsHandshakeLen = 1 + 2 + 2 + 512 // handshake version payload_length length
+const FakeTlsHandshakeLen = 1 + 2 + 2 + 512 // handshake version payload_length length
 
-func decryptInit(packet [initialHeaderSize]byte) (decrypt [48]byte) {
+func decryptInit(packet [InitialHeaderSize]byte) (decrypt [48]byte) {
 	k := 0
 	for i := 55; i >= 8; i-- {
 		decrypt[k] = packet[i]
@@ -50,12 +50,12 @@ func decryptInit(packet [initialHeaderSize]byte) (decrypt [48]byte) {
 }
 
 // struct that handles encryption
-type simpleClientCtx struct {
-	header     []byte
-	secret     *Secret
-	protocol   uint8
-	dc         int16
-	random     [2]byte
+type SimpleClientCtx struct {
+	Header     []byte
+	Secret     *Secret
+	Protocol   uint8
+	Dc         int16
+	Random     [2]byte
 	fromClient cipher.Stream
 	toClient   cipher.Stream
 }
@@ -67,7 +67,7 @@ const (
 	full         = 0
 )
 
-func simpleClientCtxFromHeader(header [initialHeaderSize]byte, secret *Secret) (c *simpleClientCtx, err error) {
+func SimpleClientCtxFromHeader(header [InitialHeaderSize]byte, secret *Secret) (c *SimpleClientCtx, err error) {
 	encKey := header[8:40]
 	encIV := header[40:56]
 	decReversed := decryptInit(header)
@@ -113,34 +113,34 @@ func simpleClientCtxFromHeader(header [initialHeaderSize]byte, secret *Secret) (
 	var random [2]byte
 	copy(random[:], buf[62:64])
 	// fmt.Printf("protocol: %x. DC %x\n", protocol, dc)
-	c = &simpleClientCtx{
-		header:     header[:],
-		secret:     secret,
+	c = &SimpleClientCtx{
+		Header:     header[:],
+		Secret:     secret,
 		fromClient: fromClientStream,
 		toClient:   toClientStream,
-		protocol:   protocol,
-		dc:         dc,
-		random:     random,
+		Protocol:   protocol,
+		Dc:         dc,
+		Random:     random,
 	}
 	return
 }
 
-func (c *simpleClientCtx) decryptNext(buf []byte) {
+func (c *SimpleClientCtx) DecryptNext(buf []byte) {
 	c.fromClient.XORKeyStream(buf, buf)
 }
 
-func (c *simpleClientCtx) encryptNext(buf []byte) {
+func (c *SimpleClientCtx) EncryptNext(buf []byte) {
 	c.toClient.XORKeyStream(buf, buf)
 }
 
-type dcCtx struct {
-	nonce  [initialHeaderSize]byte
+type DcCtx struct {
+	Nonce  [InitialHeaderSize]byte
 	toDc   cipher.Stream
 	fromDc cipher.Stream
 }
 
-func isWrongNonce(nonce [initialHeaderSize]byte) bool {
-	for _, s := range wrongNonceStarters {
+func IsWrongNonce(nonce [InitialHeaderSize]byte) bool {
+	for _, s := range WrongNonceStarters {
 		if bytes.Equal(nonce[:len(s)], s) {
 			return true
 		}
@@ -148,7 +148,7 @@ func isWrongNonce(nonce [initialHeaderSize]byte) bool {
 	return bytes.Equal(nonce[4:8], []byte{0, 0, 0, 0})
 }
 
-func genHeader() (packet [initialHeaderSize]byte, err error) {
+func genHeader() (packet [InitialHeaderSize]byte, err error) {
 	// init := (56 random bytes) + protocol + dc + (2 random bytes)
 	for {
 		_, err = rand.Read(packet[:])
@@ -156,14 +156,14 @@ func genHeader() (packet [initialHeaderSize]byte, err error) {
 			return
 		}
 		runtime.Gosched()
-		if isWrongNonce(packet) {
+		if IsWrongNonce(packet) {
 			continue
 		}
 		return
 	}
 }
 
-func dcCtxNew(dc int, protocol byte) (c *dcCtx, err error) {
+func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
 	header, err := genHeader()
 	if err != nil {
 		return
@@ -187,34 +187,34 @@ func dcCtxNew(dc int, protocol byte) (c *dcCtx, err error) {
 		return
 	}
 	fromDcStream := cipher.NewCTR(fromDcCipher, decIV)
-	var nonce [initialHeaderSize]byte
+	var nonce [InitialHeaderSize]byte
 	toDcStream.XORKeyStream(nonce[:], header[:])
 	copy(nonce[:56], header[:56])
-	c = &dcCtx{
-		nonce:  nonce,
+	c = &DcCtx{
+		Nonce:  nonce,
 		toDc:   toDcStream,
 		fromDc: fromDcStream,
 	}
 	return
 }
 
-func (c *dcCtx) decryptNext(buf []byte) {
+func (c *DcCtx) DecryptNext(buf []byte) {
 	c.fromDc.XORKeyStream(buf, buf)
 }
 
-func (c *dcCtx) encryptNext(buf []byte) {
+func (c *DcCtx) EncryptNext(buf []byte) {
 	c.toDc.XORKeyStream(buf, buf)
 }
 
-type fakeTlsCtx struct {
-	header [tlsHandshakeLen]byte
-	digest [32]byte
-	secret *Secret
+type FakeTlsCtx struct {
+	Header [FakeTlsHandshakeLen]byte
+	Digest [32]byte
+	Secret *Secret
 }
 
-func fakeTlsCtxFromTlsHeader(header [tlsHandshakeLen]byte, secret *Secret) (c *fakeTlsCtx, err error) {
+func FakeTlsCtxFromTlsHeader(header [FakeTlsHandshakeLen]byte, secret *Secret) (c *FakeTlsCtx, err error) {
 	digest := header[11 : 11+32]
-	msg := make([]byte, tlsHandshakeLen)
+	msg := make([]byte, FakeTlsHandshakeLen)
 	copy(msg, header[:])
 	for i := 11; i < 11+32; i++ {
 		msg[i] = 0
@@ -228,10 +228,10 @@ func fakeTlsCtxFromTlsHeader(header [tlsHandshakeLen]byte, secret *Secret) (c *f
 	}
 	var digestArr [32]byte
 	copy(digestArr[:], digest)
-	c = &fakeTlsCtx{
-		header: header,
-		digest: digestArr,
-		secret: secret,
+	c = &FakeTlsCtx{
+		Header: header,
+		Digest: digestArr,
+		Secret: secret,
 	}
 	return c, nil
 }

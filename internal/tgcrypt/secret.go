@@ -1,4 +1,4 @@
-package main
+package tgcrypt
 
 import (
 	"encoding/hex"

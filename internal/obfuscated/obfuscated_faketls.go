@@ -1,4 +1,4 @@
-package main
+package obfuscated
 
 import (
 	"bytes"
@@ -12,25 +12,28 @@ import (
 	mrand "math/rand"
 	"net"
 	"runtime"
+
+	"github.com/geovex/tgp/internal/config"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func handleFakeTls(initialPacket [initialHeaderSize]byte, stream net.Conn, dcConn DCConnector, users *Users) (err error) {
-	var tlsHandshake [tlsHandshakeLen]byte
-	copy(tlsHandshake[:initialHeaderSize], initialPacket[:])
-	_, err = io.ReadFull(stream, tlsHandshake[initialHeaderSize:])
-	var clientCtx *fakeTlsCtx
+func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn, dcConn DCConnector, users *config.Users) (err error) {
+	var tlsHandshake [tgcrypt.FakeTlsHandshakeLen]byte
+	copy(tlsHandshake[:tgcrypt.FakeTlsHandshakeLen], initialPacket[:])
+	_, err = io.ReadFull(stream, tlsHandshake[tgcrypt.InitialHeaderSize:])
+	var clientCtx *tgcrypt.FakeTlsCtx
 	if err != nil {
 		return
 	}
 	fmt.Println("faketls detected")
 	var user string
-	for u, s := range users.users {
+	for u, s := range users.Users {
 		runtime.Gosched()
-		secret, err := NewSecretHex(s)
+		secret, err := tgcrypt.NewSecretHex(s)
 		if err != nil {
 			continue
 		}
-		clientCtx, err = fakeTlsCtxFromTlsHeader(tlsHandshake, secret)
+		clientCtx, err = tgcrypt.FakeTlsCtxFromTlsHeader(tlsHandshake, secret)
 		if err != nil {
 			continue
 		} else {
@@ -45,12 +48,12 @@ func handleFakeTls(initialPacket [initialHeaderSize]byte, stream net.Conn, dcCon
 	return nil
 }
 
-func transceiveFakeTls(client net.Conn, cryptClient *fakeTlsCtx, dcConn DCConnector) error {
+func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn DCConnector) error {
 	defer client.Close()
 	// TODO: xor and check timestamp
 	zero32 := make([]byte, 32)
-	sessionIdLen := cryptClient.header[43]
-	sessionId := cryptClient.header[44 : 44+sessionIdLen]
+	sessionIdLen := cryptClient.Header[43]
+	sessionId := cryptClient.Header[44 : 44+sessionIdLen]
 	toClientHello := []byte{0x03, 0x03} // tls version 3,3 means tls 1.2
 	toClientHello = append(toClientHello, zero32...)
 	toClientHello = append(toClientHello, sessionIdLen)
@@ -87,8 +90,8 @@ func transceiveFakeTls(client net.Conn, cryptClient *fakeTlsCtx, dcConn DCConnec
 	}
 	toClientHelloPkt = append(toClientHelloPkt, binary.BigEndian.AppendUint16(nil, uint16(len(httpData)))...)
 	toClientHelloPkt = append(toClientHelloPkt, httpData...)
-	h := hmac.New(sha256.New, cryptClient.secret.RawSecret)
-	h.Write(cryptClient.digest[:])
+	h := hmac.New(sha256.New, cryptClient.Secret.RawSecret)
+	h.Write(cryptClient.Digest[:])
 	h.Write(toClientHelloPkt)
 	toClientDigest := h.Sum(nil)
 	copy(toClientHelloPkt[11:], toClientDigest)
@@ -97,20 +100,20 @@ func transceiveFakeTls(client net.Conn, cryptClient *fakeTlsCtx, dcConn DCConnec
 		return err
 	}
 	fts := newFakeTlsStream(cryptClient)
-	var simpleHeader [initialHeaderSize]byte
+	var simpleHeader [tgcrypt.InitialHeaderSize]byte
 	err = fts.ReadFull(client, simpleHeader[:])
 	if err != nil {
 		return err
 	}
-	simpleCtx, err := simpleClientCtxFromHeader(simpleHeader, cryptClient.secret)
+	simpleCtx, err := tgcrypt.SimpleClientCtxFromHeader(simpleHeader, cryptClient.Secret)
 	if err != nil {
 		return err
 	}
-	dc, err := dcConn.ConnectDC(int(simpleCtx.dc))
+	dc, err := dcConn.ConnectDC(simpleCtx.Dc)
 	if err != nil {
 		return err
 	}
-	cryptDc, err := dcCtxNew(int(simpleCtx.dc), simpleCtx.protocol)
+	cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
 	if err != nil {
 		return err
 	}
@@ -118,7 +121,7 @@ func transceiveFakeTls(client net.Conn, cryptClient *fakeTlsCtx, dcConn DCConnec
 	go func() {
 		defer client.Close()
 		defer dc.Close()
-		_, err := dc.Write(cryptDc.nonce[:])
+		_, err := dc.Write(cryptDc.Nonce[:])
 		if err != nil {
 			readerJoinChannel <- err
 			return
@@ -130,8 +133,8 @@ func transceiveFakeTls(client net.Conn, cryptClient *fakeTlsCtx, dcConn DCConnec
 				readerJoinChannel <- err
 				return
 			}
-			simpleCtx.decryptNext(buf[:n])
-			cryptDc.encryptNext(buf[:n])
+			simpleCtx.DecryptNext(buf[:n])
+			cryptDc.EncryptNext(buf[:n])
 			_, err = dc.Write(buf[:n])
 			if err != nil {
 				readerJoinChannel <- err
@@ -150,8 +153,8 @@ func transceiveFakeTls(client net.Conn, cryptClient *fakeTlsCtx, dcConn DCConnec
 				writerJoinChannel <- err
 				return
 			}
-			cryptDc.decryptNext(buf[:n])
-			simpleCtx.encryptNext(buf[:n])
+			cryptDc.DecryptNext(buf[:n])
+			simpleCtx.EncryptNext(buf[:n])
 			_, err = fts.Write(client, buf[:n])
 			if err != nil {
 				readerJoinChannel <- err
@@ -165,11 +168,11 @@ func transceiveFakeTls(client net.Conn, cryptClient *fakeTlsCtx, dcConn DCConnec
 }
 
 type fakeTlsStream struct {
-	cryptCtx   *fakeTlsCtx
+	cryptCtx   *tgcrypt.FakeTlsCtx
 	readerTail []byte
 }
 
-func newFakeTlsStream(crypt *fakeTlsCtx) *fakeTlsStream {
+func newFakeTlsStream(crypt *tgcrypt.FakeTlsCtx) *fakeTlsStream {
 	return &fakeTlsStream{
 		cryptCtx:   crypt,
 		readerTail: []byte{},

@@ -1,7 +1,7 @@
-package main
+package config
 
 type Users struct {
-	users map[string]string
+	Users map[string]string
 }
 
 func NewUsersSecret(secret string) *Users {
@@ -9,10 +9,10 @@ func NewUsersSecret(secret string) *Users {
 		"_": secret,
 	}
 	return &Users{
-		users: users,
+		Users: users,
 	}
 }
 
 func NewUsersMap(u map[string]string) *Users {
-	return &Users{users: u}
+	return &Users{Users: u}
 }

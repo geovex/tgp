@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"os"
@@ -22,7 +22,7 @@ type Config struct {
 	Users      *map[string]string
 }
 
-func readConfig(path string) (*Config, error) {
+func ReadConfig(path string) (*Config, error) {
 	var configData []byte
 	var config Config
 	configData, err := os.ReadFile(os.Args[1])
@@ -36,7 +36,7 @@ func readConfig(path string) (*Config, error) {
 	return &config, nil
 }
 
-func defaultConfig() *Config {
+func DefaultConfig() *Config {
 	var config Config
 	_, err := toml.Decode(defaultConfigData, &config)
 	if err != nil {
