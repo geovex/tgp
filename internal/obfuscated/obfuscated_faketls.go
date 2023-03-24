@@ -12,6 +12,7 @@ import (
 	mrand "math/rand"
 	"net"
 	"runtime"
+	"time"
 
 	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/tgcrypt"
@@ -50,7 +51,15 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 
 func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn DCConnector) error {
 	defer client.Close()
-	// TODO: xor and check timestamp
+	// checking timestamp
+	// TODO: consider it optional
+	skew := time.Now().Unix() - int64(cryptClient.Timestamp)
+	if skew < 0 {
+		skew = -skew
+	}
+	if skew > 1000 {
+		return fmt.Errorf("time skew too big")
+	}
 	zero32 := make([]byte, 32)
 	sessionIdLen := cryptClient.Header[43]
 	sessionId := cryptClient.Header[44 : 44+sessionIdLen]
@@ -84,7 +93,7 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	toClientHelloPkt = append(toClientHelloPkt, toClientHello...)
 	toClientHelloPkt = append(toClientHelloPkt, 0x14, 0x03, 0x03, 0x00, 0x01, 0x01) //change cipher
 	toClientHelloPkt = append(toClientHelloPkt, 0x17, 0x03, 0x03)                   // tls app http2 header
-	// TODO consider random cert length and fetch original cert
+	// TODO consider fetch original cert
 	httpData := make([]byte, mrand.Intn(4000)+1000)
 	_, err = io.ReadFull(rand.Reader, httpData)
 	if err != nil {
