@@ -40,6 +40,7 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 		} else {
 			user = u
 			fmt.Printf("Client connected %s by faketls\n", user)
+			break
 		}
 	}
 	if clientCtx == nil {
