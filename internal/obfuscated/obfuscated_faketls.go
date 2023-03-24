@@ -54,7 +54,8 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	zero32 := make([]byte, 32)
 	sessionIdLen := cryptClient.Header[43]
 	sessionId := cryptClient.Header[44 : 44+sessionIdLen]
-	toClientHello := []byte{0x03, 0x03} // tls version 3,3 means tls 1.2
+	toClientHello := make([]byte, 0, 118)
+	toClientHello = append(toClientHello, 0x03, 0x03) // tls version 3,3 means tls 1.2
 	toClientHello = append(toClientHello, zero32...)
 	toClientHello = append(toClientHello, sessionIdLen)
 	toClientHello = append(toClientHello, sessionId...)
@@ -72,10 +73,11 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	tlsExtensions = append(tlsExtensions, publicKey...)
 	tlsExtensions = append(tlsExtensions, 0x00, 0x2b, 0x00, 0x02, 0x03, 0x04) // supported versions 3 and 4
 	toClientHello = append(toClientHello, tlsExtensions...)
-	toClientHelloPkt := []byte{
+	toClientHelloPkt := make([]byte, 0, 2000)
+	toClientHelloPkt = append(toClientHelloPkt,
 		0x16,       // handhake record
 		0x03, 0x03, // protocol version 3,3 means tls 1.2
-	}
+	)
 	toClientHelloPkt = append(toClientHelloPkt, binary.BigEndian.AppendUint16(nil, uint16(len(toClientHello)+4))...)
 	toClientHelloPkt = append(toClientHelloPkt, 0x02)
 	toClientHelloPkt = append(toClientHelloPkt, binary.BigEndian.AppendUint32(nil, uint32(len(toClientHello)))[1:]...)
