@@ -10,6 +10,7 @@ import (
 )
 
 func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn, dcConn DCConnector, users *config.Users) (err error) {
+	defer stream.Close()
 	var cryptClient *tgcrypt.SimpleClientCtx
 	var user string
 	for u, s := range users.Users {
@@ -41,6 +42,7 @@ func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn
 	if err != nil {
 		return err
 	}
+	defer dcConnection.Close()
 	cryptDc, err := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
 	if err != nil {
 		return err

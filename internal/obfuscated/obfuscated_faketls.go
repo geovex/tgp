@@ -125,6 +125,7 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	if err != nil {
 		return err
 	}
+	defer dc.Close()
 	cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
 	if err != nil {
 		return err
