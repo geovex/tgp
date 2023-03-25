@@ -2,6 +2,7 @@ package obfuscated
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 
 	"golang.org/x/net/proxy"
@@ -9,30 +10,33 @@ import (
 
 const dc_port = "443"
 
-var dc_ip4 = [...]string{
-	"149.154.175.50",
-	"149.154.167.51",
-	"149.154.175.100",
-	"149.154.167.91",
-	"149.154.171.5",
+var dc_ip4 = [...][]string{
+	{"149.154.175.50"},
+	{"149.154.167.51", "95.161.76.100"},
+	{"149.154.175.100"},
+	{"149.154.167.91"},
+	{"149.154.171.5"},
 }
 
 // var dc_ip6 = [...]string{
-// 	"2001:b28:f23d:f001::a",
-// 	"2001:67c:04e8:f002::a",
-// 	"2001:b28:f23d:f003::a",
-// 	"2001:67c:04e8:f004::a",
-// 	"2001:b28:f23f:f005::a",
+// 	{"2001:b28:f23d:f001::a"},
+// 	{"2001:67c:04e8:f002::a"},
+// 	{"2001:b28:f23d:f003::a"},
+// 	{"2001:67c:04e8:f004::a"},
+// 	{"2001:b28:f23f:f005::a"},
 // }
 
-func normalizeDcNum(dc int16) (int16, error) {
+func getDcAddr(dc int16) (string, error) {
 	if dc < 0 {
 		dc = -dc
 	}
 	if dc < 1 || dc > int16(len(dc_ip4)) {
-		return 0, fmt.Errorf("invalid dc number %d", dc)
+		return "", fmt.Errorf("invalid dc number %d", dc)
 	}
-	return dc, nil
+	dcIdxList := dc_ip4[dc-1]
+	dcSubidx := rand.Intn(len(dcIdxList))
+	dcAddr := dc_ip4[dc-1][dcSubidx] + ":" + dc_port
+	return dcAddr, nil
 }
 
 type DCConnector interface {
@@ -46,12 +50,11 @@ func NewDcDirectConnector() *DcDirectConnector {
 }
 
 func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
-	dc, err = normalizeDcNum(dc)
+	dcAddr, err := getDcAddr(dc)
 	if err != nil {
 		return nil, err
 	}
-	dc_addr := dc_ip4[dc-1] + ":" + dc_port
-	c, err = net.Dial("tcp", dc_addr)
+	c, err = net.Dial("tcp", dcAddr)
 	return c, err
 }
 
@@ -68,12 +71,11 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	if err != nil {
 		return nil, err
 	}
-	dc, err = normalizeDcNum(dc)
+	dcAddr, err := getDcAddr(dc)
 	if err != nil {
 		return nil, err
 	}
-	dc_addr := dc_ip4[dc-1] + ":" + dc_port
-	c, err = dialer.Dial("tcp", dc_addr)
+	c, err = dialer.Dial("tcp", dcAddr)
 	if err != nil {
 		return nil, err
 	}
