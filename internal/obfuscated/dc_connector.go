@@ -55,6 +55,12 @@ func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 		return nil, err
 	}
 	c, err = net.Dial("tcp", dcAddr)
+	sock, ok := c.(*net.TCPConn)
+	if ok {
+		//fmt.Fprintf("nodelay: %s\n", sock.)
+		sock.SetNoDelay(true)
+
+	}
 	return c, err
 }
 
@@ -78,6 +84,12 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	c, err = dialer.Dial("tcp", dcAddr)
 	if err != nil {
 		return nil, err
+	}
+	sock, ok := c.(*net.TCPConn)
+	if ok {
+		//fmt.Fprintf("nodelay: %s\n", sock.)
+		sock.SetNoDelay(true)
+
 	}
 	return
 }

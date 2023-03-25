@@ -19,6 +19,10 @@ func listenForConnections(listener net.Listener, dcc o.DCConnector, userDB *conf
 		if err != nil {
 			return err
 		}
+		sock, ok := conn.(*net.TCPConn)
+		if ok {
+			sock.SetNoDelay(true)
+		}
 		go handleConnection(conn, dcc, userDB)
 	}
 }
