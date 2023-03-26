@@ -13,12 +13,12 @@ func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn
 	defer stream.Close()
 	var cryptClient *tgcrypt.SimpleClientCtx
 	var user string
-	for u, s := range users.Users {
+	for name, data := range users.Users {
 		runtime.Gosched()
 		if tgcrypt.IsWrongNonce(initialPacket) {
 			continue
 		}
-		secret, err := tgcrypt.NewSecretHex(s)
+		secret, err := tgcrypt.NewSecretHex(data.Secret)
 		if err != nil {
 			continue
 		}
@@ -30,7 +30,7 @@ func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn
 		if int(cryptClient.Dc) > len(dc_ip4) || int(cryptClient.Dc) < -len(dc_ip4) {
 			continue
 		}
-		user = u
+		user = name
 		fmt.Printf("Client connected %s, protocol: %x\n", user, cryptClient.Protocol)
 		break
 	}
