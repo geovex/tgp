@@ -18,7 +18,7 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn, dcConn DCConnector, users *config.Users) (err error) {
+func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn, users *config.Users) (err error) {
 	var tlsHandshake [tgcrypt.FakeTlsHandshakeLen]byte
 	copy(tlsHandshake[:tgcrypt.FakeTlsHandshakeLen], initialPacket[:])
 	_, err = io.ReadFull(stream, tlsHandshake[tgcrypt.InitialHeaderSize:])
@@ -26,8 +26,8 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 	if err != nil {
 		return
 	}
-	var user string
-	for name, data := range users.Users {
+	var user *config.User
+	for _, data := range users.Users {
 		runtime.Gosched()
 		secret, err := tgcrypt.NewSecretHex(data.Secret)
 		if err != nil {
@@ -37,16 +37,20 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 		if err != nil {
 			continue
 		} else {
-			user = name
-			fmt.Printf("Client connected %s (faketls)\n", user)
+			user = data
+			fmt.Printf("Client connected %s (faketls)\n", user.Name)
 			break
 		}
 	}
 	if clientCtx == nil {
 		return fmt.Errorf("user not found by secret")
 	}
-	transceiveFakeTls(stream, clientCtx, dcConn)
-	fmt.Printf("Client disconnected %s (faketls) \n", user)
+	dcconn, err := dcConnFromUser(user)
+	if err != nil {
+		return err
+	}
+	transceiveFakeTls(stream, clientCtx, dcconn)
+	fmt.Printf("Client disconnected %s (faketls) \n", user.Name)
 	return nil
 }
 

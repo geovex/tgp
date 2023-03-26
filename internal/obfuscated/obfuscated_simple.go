@@ -9,11 +9,11 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn, dcConn DCConnector, users *config.Users) (err error) {
+func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn, users *config.Users) (err error) {
 	defer stream.Close()
 	var cryptClient *tgcrypt.SimpleClientCtx
-	var user string
-	for name, data := range users.Users {
+	var user *config.User
+	for _, data := range users.Users {
 		runtime.Gosched()
 		if tgcrypt.IsWrongNonce(initialPacket) {
 			continue
@@ -30,15 +30,19 @@ func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn
 		if int(cryptClient.Dc) > len(dc_ip4) || int(cryptClient.Dc) < -len(dc_ip4) {
 			continue
 		}
-		user = name
-		fmt.Printf("Client connected %s, protocol: %x\n", user, cryptClient.Protocol)
+		user = data
+		fmt.Printf("Client connected %s, protocol: %x\n", user.Name, cryptClient.Protocol)
 		break
 	}
 	if cryptClient == nil {
 		return fmt.Errorf("user not found by secret")
 	}
 	//connect to dc
-	dcConnection, err := dcConn.ConnectDC(cryptClient.Dc)
+	dcconn, err := dcConnFromUser(user)
+	if err != nil {
+		return err
+	}
+	dcConnection, err := dcconn.ConnectDC(cryptClient.Dc)
 	if err != nil {
 		return err
 	}
@@ -48,7 +52,7 @@ func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn
 		return err
 	}
 	transceiveSimple(stream, cryptClient, dcConnection, cryptDc)
-	fmt.Printf("Client disconnected %s\n", user)
+	fmt.Printf("Client disconnected %s\n", user.Name)
 	return nil
 }
 
