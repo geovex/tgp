@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net"
 
+	"github.com/geovex/tgp/internal/config"
 	"golang.org/x/net/proxy"
 )
 
@@ -105,4 +106,12 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 
 	}
 	return
+}
+
+func dcConnFromUser(user *config.User) (conn DCConnector, err error) {
+	if user.Socks5 != nil {
+		return NewDcSocksConnector(user.Socks5.Url, user.Socks5.User, user.Socks5.Pass), nil
+	} else {
+		return NewDcDirectConnector(), nil
+	}
 }
