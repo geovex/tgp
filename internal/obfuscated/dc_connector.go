@@ -65,15 +65,28 @@ func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 }
 
 type DcSocksConnector struct {
+	user   *string
+	pass   *string
 	socks5 string
 }
 
-func NewDcSocksConnector(socks5 string) *DcSocksConnector {
-	return &DcSocksConnector{socks5}
+func NewDcSocksConnector(socks5 string, user *string, pass *string) *DcSocksConnector {
+	return &DcSocksConnector{
+		user:   user,
+		pass:   pass,
+		socks5: socks5,
+	}
 }
 
 func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
-	dialer, err := proxy.SOCKS5("tcp", dsc.socks5, nil, proxy.Direct)
+	var auth *proxy.Auth
+	if dsc.user != nil && dsc.pass != nil {
+		auth = &proxy.Auth{
+			User:     *dsc.user,
+			Password: *dsc.pass,
+		}
+	}
+	dialer, err := proxy.SOCKS5("tcp", dsc.socks5, auth, proxy.Direct)
 	if err != nil {
 		return nil, err
 	}
