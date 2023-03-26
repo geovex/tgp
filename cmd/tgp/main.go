@@ -46,7 +46,7 @@ func main() {
 	defer listener.Close()
 	var dcc o.DCConnector
 	if c.Socks5 != nil {
-		dcc = o.NewDcSocksConnector(*c.Socks5)
+		dcc = o.NewDcSocksConnector(*c.Socks5, c.Socks5_user, c.Socks5_pass)
 	} else {
 		dcc = o.NewDcDirectConnector()
 	}
