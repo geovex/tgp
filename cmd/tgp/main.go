@@ -44,21 +44,13 @@ func main() {
 		panic(err)
 	}
 	defer listener.Close()
-	var userDB *config.Users
-	if c.Users != nil && c.Secret == nil {
-		userDB = config.NewUsersMap(*c.Users)
-	} else if c.Users == nil && c.Secret != nil {
-		userDB = config.NewUsersSecret(*c.Secret)
-	} else {
-		panic("specify either secret or users")
-	}
 	var dcc o.DCConnector
 	if c.Socks5 != nil {
 		dcc = o.NewDcSocksConnector(*c.Socks5)
 	} else {
 		dcc = o.NewDcDirectConnector()
 	}
-	_ = listenForConnections(listener, dcc, userDB)
+	_ = listenForConnections(listener, dcc, c.Users)
 }
 
 func DefaultConfig() {
