@@ -27,9 +27,9 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 		return
 	}
 	var user string
-	for u, s := range users.Users {
+	for name, data := range users.Users {
 		runtime.Gosched()
-		secret, err := tgcrypt.NewSecretHex(s)
+		secret, err := tgcrypt.NewSecretHex(data.Secret)
 		if err != nil {
 			continue
 		}
@@ -37,7 +37,7 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 		if err != nil {
 			continue
 		} else {
-			user = u
+			user = name
 			fmt.Printf("Client connected %s (faketls)\n", user)
 			break
 		}
