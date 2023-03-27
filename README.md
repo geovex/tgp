@@ -12,7 +12,6 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 - middleproxy protocol
 - IPv6
 - fallback fake tls to original host
-- socks5 auth
 - AD_TAG (requires middleproxy)
 
 ## Starting ##
