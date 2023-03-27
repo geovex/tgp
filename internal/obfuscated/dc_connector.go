@@ -108,10 +108,10 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	return
 }
 
-func dcConnFromUser(user *config.User) (conn DCConnector, err error) {
-	if user.Socks5 != nil {
-		return NewDcSocksConnector(user.Socks5.Url, user.Socks5.User, user.Socks5.Pass), nil
-	} else {
+func dcConnectorFromSocks(s *config.Socks5Data) (conn DCConnector, err error) {
+	if s == nil {
 		return NewDcDirectConnector(), nil
+	} else {
+		return NewDcSocksConnector(s.Url, s.User, s.Pass), nil
 	}
 }

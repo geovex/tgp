@@ -6,17 +6,17 @@ type User struct {
 	Socks5 *Socks5Data
 }
 
-type Users struct {
+type userDB struct {
 	Users map[string]*User
 }
 
-func NewUsers() *Users {
-	return &Users{
+func NewUsers() *userDB {
+	return &userDB{
 		Users: make(map[string]*User),
 	}
 }
 
-func NewUsersSecret(secret string, socks *Socks5Data) *Users {
+func newUsersSecret(secret string, socks *Socks5Data) *userDB {
 	defuser := User{
 		Name:   "_",
 		Secret: secret,
@@ -27,8 +27,8 @@ func NewUsersSecret(secret string, socks *Socks5Data) *Users {
 	return users
 }
 
-func NewUsersMap(u map[string]string) (result *Users) {
-	result = &Users{
+func newUsersMap(u map[string]string) (result *userDB) {
+	result = &userDB{
 		Users: map[string]*User{},
 	}
 	for k, v := range u {

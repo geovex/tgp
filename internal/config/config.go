@@ -66,109 +66,48 @@ func (p *parsedUserPrimitive) getSocks(parent *Socks5Data) (s *Socks5Data, err e
 }
 
 type Config struct {
-	Listen_Url string
-	Secret     *string
-	Users      *Users
+	listen_Url string
+	secret     *string
+	users      *userDB
 }
 
-func ReadConfig(path string) (*Config, error) {
-	var c parsedConfig
-	md, err := toml.DecodeFile(path, &c)
-	if err != nil {
-		return nil, err
-	}
-	result, err := configFromParsed(&c, &md)
-	if err != nil {
-		return result, err
-	}
-	return result, nil
+func (c *Config) GetListenUrl() string {
+	return c.listen_Url
 }
 
-func DefaultConfig() *Config {
-	var c parsedConfig
-	md, err := toml.Decode(defaultConfigData, &c)
-	if err != nil {
-		panic(err)
-	}
-	result, err := configFromParsed(&c, &md)
-	if err != nil {
-		panic(err)
-	}
-	return result
-}
-func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) {
-	//check for common defsocks
-	var defsocks *Socks5Data
-	if parsed.Socks5 != nil {
-		err := checkSocksValues(parsed.Socks5_user, parsed.Socks5_pass)
-		if err != nil {
-			return nil, err
-		}
-		defsocks = &Socks5Data{
-			Url:  *parsed.Socks5,
-			User: parsed.Socks5_user,
-			Pass: parsed.Socks5_pass,
-		}
-	}
-	var users *Users
-	if parsed.Users != nil && parsed.Secret == nil {
-		users = NewUsers()
-		for name, data := range *parsed.Users {
-			utype := md.Type("users", name)
-			if utype == "String" {
-				var secret string
-				err := md.PrimitiveDecode(data, &secret)
-				if err != nil {
-					return nil, err
-				}
-				users.Users[name] = &User{
-					Name:   name,
-					Secret: secret,
-					Socks5: defsocks,
-				}
-			} else if utype == "Hash" {
-				var pu parsedUserPrimitive
-				err := md.PrimitiveDecode(data, &pu)
-				if err != nil {
-					return nil, err
-				}
-				usersocks, err := pu.getSocks(defsocks)
-				if err != nil {
-					return nil, err
-				}
-				users.Users[name] = &User{
-					Name:   name,
-					Secret: pu.Secret,
-					Socks5: usersocks,
-				}
-			} else {
-				return nil, fmt.Errorf("unknown type for user %s: %s ", name, utype)
-			}
-		}
-	} else if parsed.Users == nil && parsed.Secret != nil {
-		users = NewUsersSecret(*parsed.Secret, defsocks)
+func (c *Config) GetUser(user string) (*User, error) {
+	userData, ok := c.users.Users[user]
+	if !ok {
+		return nil, fmt.Errorf("user %s not found", user)
 	} else {
-		return nil, fmt.Errorf("specify either secret or users")
+		return userData, nil
 	}
-	err := checkSocksValues(parsed.Socks5_user, parsed.Socks5_user)
+}
+
+func (c *Config) GetUserSecret(user string) (string, error) {
+	if c.secret == nil {
+		userData, err := c.GetUser(user)
+		if err != nil {
+			return "", err
+		}
+		return userData.Secret, nil
+	} else {
+		return *c.secret, nil
+	}
+}
+
+func (c *Config) IterateUsers(f func(user, secret string) (stop bool)) {
+	for k, v := range c.users.Users {
+		if f(k, v.Secret) {
+			return
+		}
+	}
+}
+
+func (c *Config) GetSocks5(user string) (*Socks5Data, error) {
+	u, err := c.GetUser(user)
 	if err != nil {
 		return nil, err
 	}
-	return &Config{
-		Listen_Url: parsed.Listen_Url,
-		Secret:     parsed.Secret,
-		Users:      users,
-	}, nil
-}
-
-func checkSocksValues(user *string, pass *string) error {
-	if (user == nil && pass != nil) ||
-		(user != nil && pass == nil) {
-		return fmt.Errorf("both socks5_pass and socks5_user must be specified")
-	}
-	if (user != nil) && (*user == "") ||
-		(pass != nil) && (*pass == "") {
-		return fmt.Errorf("socks user or password can't have zero length (https://github.com/golang/go/issues/57285)")
-	}
-	return nil
+	return u.Socks5, nil
 }
