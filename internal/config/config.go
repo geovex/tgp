@@ -35,27 +35,34 @@ type parsedUserPrimitive struct {
 	Socks5_pass *string
 }
 
-func (p *parsedUserPrimitive) getSocks(parent *Socks5Data) (*Socks5Data, error) {
-	if p.Socks5 == nil && p.Socks5_user == nil && p.Socks5_pass == nil {
+// TODO: need some tests
+func (p *parsedUserPrimitive) getSocks(parent *Socks5Data) (s *Socks5Data, err error) {
+	if p.Socks5 == nil && p.Socks5_user == nil {
 		return parent, nil
-	}
-	var url string
-	if p.Socks5 == nil && parent != nil {
-		url = parent.Url
+	} else if p.Socks5 == nil && p.Socks5_user != nil {
+		err = checkSocksValues(p.Socks5_user, p.Socks5_pass)
+		if err != nil {
+			return nil, err
+		}
+		s = &Socks5Data{
+			Url:  parent.Url,
+			User: p.Socks5_user,
+			Pass: p.Socks5_pass}
+		return s, nil
 	} else if *p.Socks5 == "" {
 		return nil, nil
 	} else {
-		url = *p.Socks5
+		err = checkSocksValues(p.Socks5_user, p.Socks5_pass)
+		if err != nil {
+			return nil, err
+		}
+		s = &Socks5Data{
+			Url:  *p.Socks5,
+			User: p.Socks5_user,
+			Pass: p.Socks5_pass,
+		}
+		return s, nil
 	}
-	err := checkSocksValues(p.Socks5_user, p.Socks5_pass)
-	if err != nil {
-		return nil, err
-	}
-	return &Socks5Data{
-		Url:  url,
-		User: p.Socks5_user,
-		Pass: p.Socks5_pass,
-	}, nil
 }
 
 type Config struct {
