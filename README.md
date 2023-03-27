@@ -26,9 +26,10 @@ listen_url = "0.0.0.0:6666"
 #secret = "dd000102030405060708090a0b0c0d0e0f"
 # Set socks5 proxy in case you need to use one
 socks5 = "127.0.0.1:9050"
-# For now empty password is not allowed. because of https://github.com/golang/go/issues/57285
-user = "test"
-password = "test"
+# Optional auth
+# Now empty password is not allowed. because of https://github.com/golang/go/issues/57285
+socks5_user = "test"
+socks5_pass = "test"
 [users]
 1 = "dd000102030405060708090a0b0c0d0e0f"
 [users.2] 
