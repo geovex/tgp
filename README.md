@@ -27,11 +27,23 @@ listen_url = "0.0.0.0:6666"
 #secret = "dd000102030405060708090a0b0c0d0e0f"
 # Set socks5 proxy in case you need to use one
 socks5 = "127.0.0.1:9050"
-
-# Or define multiple users here
+# For now empty password is not allowed. because of https://github.com/golang/go/issues/57285
+user = "test"
+password = "test"
 [users]
 1 = "dd000102030405060708090a0b0c0d0e0f"
-2 = "dd101112131415161718191a1b1c1d1e1f"
+[users.2] 
+secret = "dd101112131415161718191a1b1c1d1e1f"
+socks5_user = "2" # specify auth for user
+socks5_pass = "2"
+[3]
+secret = "dd303132333435363738393a3b3c3d3e3f"
+socks5 = "" # override user 3 to direct conneection
+[4]
+secret = "dd404142434445464748494a4b4c4d4e4f"
+socks5 = "127.0.0.2:9050" # override to different proxy
+socks5_user = "4" 
+socks5_pass = "4"
 ```
 
 Multiple users support achieved by checking handshake packet against each 
