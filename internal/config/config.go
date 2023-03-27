@@ -146,7 +146,7 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 			}
 		}
 	} else if parsed.Users == nil && parsed.Secret != nil {
-		users = NewUsersSecret(*parsed.Secret, *defsocks)
+		users = NewUsersSecret(*parsed.Secret, defsocks)
 	} else {
 		return nil, fmt.Errorf("specify either secret or users")
 	}

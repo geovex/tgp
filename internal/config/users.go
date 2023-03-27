@@ -16,10 +16,11 @@ func NewUsers() *Users {
 	}
 }
 
-func NewUsersSecret(secret string, socks Socks5Data) *Users {
+func NewUsersSecret(secret string, socks *Socks5Data) *Users {
 	defuser := User{
 		Name:   "_",
 		Secret: secret,
+		Socks5: socks,
 	}
 	users := NewUsers()
 	users.Users["_"] = &defuser
