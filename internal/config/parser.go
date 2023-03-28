@@ -89,6 +89,8 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	return &Config{
 		listen_Url: parsed.Listen_Url,
 		secret:     parsed.Secret,
+		host:       parsed.Host,
+		defsocks:   defsocks,
 		users:      users,
 	}, nil
 }

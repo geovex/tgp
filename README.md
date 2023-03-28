@@ -11,7 +11,6 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 
 - middleproxy protocol
 - IPv6
-- fallback fake tls to original host
 - AD_TAG (requires middleproxy)
 
 ## Starting ##
@@ -22,6 +21,8 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 Config file is a toml-formatted file. For example:
 ```toml
 listen_url = "0.0.0.0:6666"
+# optional fallback host for dpi connection testers
+host = "google.com:443"
 # You can specify global secret for user _ here
 #secret = "dd000102030405060708090a0b0c0d0e0f"
 # Set socks5 proxy in case you need to use one

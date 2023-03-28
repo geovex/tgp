@@ -42,6 +42,7 @@ func getDcAddr(dc int16) (string, error) {
 
 type DCConnector interface {
 	ConnectDC(dc int16) (c net.Conn, err error)
+	ConnectHost(host string) (c net.Conn, err error)
 }
 
 type DcDirectConnector struct{}
@@ -65,6 +66,10 @@ func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	return c, err
 }
 
+func (dcc *DcDirectConnector) ConnectHost(host string) (net.Conn, error) {
+	return net.Dial("tcp", host)
+}
+
 type DcSocksConnector struct {
 	user   *string
 	pass   *string
@@ -79,7 +84,7 @@ func NewDcSocksConnector(socks5 string, user *string, pass *string) *DcSocksConn
 	}
 }
 
-func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
+func (dsc *DcSocksConnector) createDialer() (proxy.Dialer, error) {
 	var auth *proxy.Auth
 	if dsc.user != nil && dsc.pass != nil {
 		auth = &proxy.Auth{
@@ -88,6 +93,14 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 		}
 	}
 	dialer, err := proxy.SOCKS5("tcp", dsc.socks5, auth, proxy.Direct)
+	if err != nil {
+		return nil, err
+	}
+	return dialer, nil
+}
+
+func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
+	dialer, err := dsc.createDialer()
 	if err != nil {
 		return nil, err
 	}
@@ -101,11 +114,25 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	}
 	sock, ok := c.(*net.TCPConn)
 	if ok {
-		//fmt.Fprintf("nodelay: %s\n", sock.)
 		sock.SetNoDelay(true)
-
 	}
 	return
+}
+
+func (dsc *DcSocksConnector) ConnectHost(host string) (net.Conn, error) {
+	dialer, err := dsc.createDialer()
+	if err != nil {
+		return nil, err
+	}
+	c, err := dialer.Dial("tcp", host)
+	if err != nil {
+		return nil, err
+	}
+	sock, ok := c.(*net.TCPConn)
+	if ok {
+		sock.SetNoDelay(true)
+	}
+	return c, nil
 }
 
 func dcConnectorFromSocks(s *config.Socks5Data) (conn DCConnector, err error) {
