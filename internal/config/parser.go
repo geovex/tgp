@@ -49,6 +49,7 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	if parsed.Users != nil && parsed.Secret == nil {
 		users = NewUsers()
 		for name, data := range *parsed.Users {
+			// user defined by it's secret
 			utype := md.Type("users", name)
 			if utype == "String" {
 				var secret string
@@ -61,7 +62,7 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 					Secret: secret,
 					Socks5: defsocks,
 				}
-			} else if utype == "Hash" {
+			} else if utype == "Hash" { // user fully defined
 				var pu parsedUserPrimitive
 				err := md.PrimitiveDecode(data, &pu)
 				if err != nil {
@@ -81,13 +82,9 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 			}
 		}
 	} else if parsed.Users == nil && parsed.Secret != nil {
-		users = newUsersSecret(*parsed.Secret, defsocks)
+		users = newOneUser(*parsed.Secret, defsocks)
 	} else {
 		return nil, fmt.Errorf("specify either secret or users")
-	}
-	err := checkSocksValues(parsed.Socks5_user, parsed.Socks5_user)
-	if err != nil {
-		return nil, err
 	}
 	return &Config{
 		listen_Url: parsed.Listen_Url,
