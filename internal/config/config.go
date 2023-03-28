@@ -11,6 +11,7 @@ listen_url = "0.0.0.0:6666"
 #secret = "dd000102030405060708090a0b0c0d0e0f"
 socks5 = "127.0.0.1:9050"
 # For now empty password is not allowed. because of https://github.com/golang/go/issues/57285
+host = "google.com:443"
 socks5_user = "test"
 socks5_pass = "test"
 [users]
@@ -22,6 +23,7 @@ secret = "dd101112131415161718191a1b1c1d1e1f"
 type parsedConfig struct {
 	Listen_Url  string
 	Secret      *string
+	Host        *string
 	Socks5      *string
 	Socks5_user *string
 	Socks5_pass *string
@@ -68,6 +70,8 @@ func (p *parsedUserPrimitive) getSocks(parent *Socks5Data) (s *Socks5Data, err e
 type Config struct {
 	listen_Url string
 	secret     *string
+	host       *string
+	defsocks   *Socks5Data
 	users      *userDB
 }
 
@@ -104,10 +108,17 @@ func (c *Config) IterateUsers(f func(user, secret string) (stop bool)) {
 	}
 }
 
+func (c *Config) GetDefaultSocks() *Socks5Data {
+	return c.defsocks
+}
+
 func (c *Config) GetSocks5(user string) (*Socks5Data, error) {
 	u, err := c.GetUser(user)
 	if err != nil {
 		return nil, err
 	}
 	return u.Socks5, nil
+}
+func (c *Config) GetHost() *string {
+	return c.host
 }

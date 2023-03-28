@@ -35,7 +35,7 @@ func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn
 		return true
 	})
 	if user == nil {
-		return fmt.Errorf("user not found by secret")
+		return handleFallBack(initialPacket[:], stream, cfg)
 	}
 	//connect to dc
 	s, err := cfg.GetSocks5(*user)

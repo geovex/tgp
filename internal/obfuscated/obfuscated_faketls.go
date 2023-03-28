@@ -43,7 +43,7 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 		}
 	})
 	if user == nil {
-		return fmt.Errorf("user not found by secret")
+		return handleFallBack(tlsHandshake[:], stream, cfg)
 	}
 	s, err := cfg.GetSocks5(*user)
 	if err != nil {
