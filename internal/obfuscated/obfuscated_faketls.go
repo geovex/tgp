@@ -18,7 +18,7 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn, cfg *config.Config) (err error) {
+func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn) (err error) {
 	var tlsHandshake [tgcrypt.FakeTlsHandshakeLen]byte
 	copy(tlsHandshake[:tgcrypt.FakeTlsHandshakeLen], initialPacket[:])
 	_, err = io.ReadFull(stream, tlsHandshake[tgcrypt.InitialHeaderSize:])
@@ -27,7 +27,7 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 		return
 	}
 	var user *string
-	cfg.IterateUsers(func(u, s string) bool {
+	o.config.IterateUsers(func(u, s string) bool {
 		runtime.Gosched()
 		userSecret, err := tgcrypt.NewSecretHex(s)
 		if err != nil {
@@ -43,13 +43,13 @@ func handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Con
 		}
 	})
 	if user == nil {
-		return handleFallBack(tlsHandshake[:], stream, cfg)
+		return handleFallBack(tlsHandshake[:], stream, o.config)
 	}
-	s, err := cfg.GetSocks5(*user)
+	s, err := o.config.GetSocks5(*user)
 	if err != nil {
 		panic("user found, but GetUser not")
 	}
-	dcconn, err := dcConnectorFromSocks(s, cfg.GetAllowIPv6())
+	dcconn, err := dcConnectorFromSocks(s, o.config.GetAllowIPv6())
 	if err != nil {
 		return err
 	}
@@ -294,4 +294,60 @@ func (s *fakeTlsStream) Write(stream net.Conn, b []byte) (n int, err error) {
 		i += int(transmitlen)
 	}
 	return len(b), nil
+}
+
+func handleFallBack(initialPacket []byte, client net.Conn, cfg *config.Config) (err error) {
+	defer client.Close()
+	if cfg.GetHost() == nil {
+		return fmt.Errorf("no fall back host")
+	}
+	fmt.Printf("redirect conection to fake host\n")
+	dc, err := dcConnectorFromSocks(cfg.GetDefaultSocks(), cfg.GetAllowIPv6())
+	if err != nil {
+		return
+	}
+	host, err := dc.ConnectHost(*cfg.GetHost())
+	if err != nil {
+		return
+	}
+	defer host.Close()
+	_, err = host.Write(initialPacket)
+	if err != nil {
+		return
+	}
+	reader := make(chan error, 1)
+	writer := make(chan error, 1)
+	go func() {
+		var buf [2048]byte
+		for {
+			n, err := client.Read(buf[:])
+			if err != nil {
+				reader <- err
+				return
+			}
+			_, err = host.Write(buf[:n])
+			if err != nil {
+				reader <- err
+				return
+			}
+		}
+	}()
+	go func() {
+		var buf [2048]byte
+		for {
+			n, err := host.Read(buf[:])
+			if err != nil {
+				writer <- err
+				return
+			}
+			_, err = client.Write(buf[:n])
+			if err != nil {
+				writer <- err
+				return
+			}
+		}
+	}()
+	<-reader
+	<-writer
+	return nil
 }

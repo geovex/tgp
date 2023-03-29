@@ -5,15 +5,14 @@ import (
 	"net"
 	"runtime"
 
-	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn, cfg *config.Config) (err error) {
+func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn) (err error) {
 	defer stream.Close()
 	var cryptClient *tgcrypt.SimpleClientCtx
 	var user *string
-	cfg.IterateUsers(func(u, s string) bool {
+	o.config.IterateUsers(func(u, s string) bool {
 		runtime.Gosched()
 		if tgcrypt.IsWrongNonce(initialPacket) {
 			return false
@@ -35,15 +34,15 @@ func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn
 		return true
 	})
 	if user == nil {
-		return handleFallBack(initialPacket[:], stream, cfg)
+		return handleFallBack(initialPacket[:], stream, o.config)
 	}
 	//connect to dc
-	s, err := cfg.GetSocks5(*user)
+	s, err := o.config.GetSocks5(*user)
 	if err != nil {
 		panic("user found, but GetUser not")
 	}
 
-	dcconn, err := dcConnectorFromSocks(s, cfg.GetAllowIPv6())
+	dcconn, err := dcConnectorFromSocks(s, o.config.GetAllowIPv6())
 	if err != nil {
 		return err
 	}

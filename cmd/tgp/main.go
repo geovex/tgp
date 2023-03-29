@@ -9,11 +9,22 @@ import (
 	o "github.com/geovex/tgp/internal/obfuscated"
 )
 
-func handleConnection(conn net.Conn, conf *config.Config) {
-	o.HandleObfuscated(conn, conf)
+type connectionListener struct {
+	conf *config.Config
 }
 
-func listenForConnections(listener net.Listener, conf *config.Config) error {
+func newConnectionListener(conf *config.Config) *connectionListener {
+	return &connectionListener{
+		conf: conf,
+	}
+}
+
+func (cl *connectionListener) listenForConnections() error {
+	listener, err := net.Listen("tcp", cl.conf.GetListenUrl())
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -23,7 +34,8 @@ func listenForConnections(listener net.Listener, conf *config.Config) error {
 		if ok {
 			sock.SetNoDelay(true)
 		}
-		go handleConnection(conn, conf)
+		oh := o.NewObfuscatedHandler(cl.conf)
+		go oh.HandleObfuscated(conn)
 	}
 }
 
@@ -39,12 +51,11 @@ func main() {
 		c = config.DefaultConfig()
 	}
 	fmt.Printf("listen: %s\n", c.GetListenUrl())
-	listener, err := net.Listen("tcp", c.GetListenUrl())
+	cl := newConnectionListener(c)
+	err := cl.listenForConnections()
 	if err != nil {
 		panic(err)
 	}
-	defer listener.Close()
-	_ = listenForConnections(listener, c)
 }
 
 func DefaultConfig() {
