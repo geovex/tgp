@@ -201,36 +201,26 @@ func newFakeTlsStream(crypt *tgcrypt.FakeTlsCtx) *fakeTlsStream {
 }
 
 func (s *fakeTlsStream) readPacket(stream net.Conn) ([]byte, error) {
+	var buf [5]byte
 	for {
-		var recType [1]byte
-		_, err := io.ReadFull(stream, recType[:])
+		_, err := io.ReadFull(stream, buf[:])
 		if err != nil {
 			return nil, err
 		}
-		if recType[0] != 0x14 && recType[0] != 0x17 {
-			return nil, fmt.Errorf("unexpected tls record type %v", recType)
+		recType := buf[0]
+		if recType != 0x14 && recType != 0x17 {
+			return nil, fmt.Errorf("unexpected record type %x", recType)
 		}
-		var version [2]byte
-		_, err = io.ReadFull(stream, version[:])
-		if err != nil {
-			return nil, err
+		if !bytes.Equal(buf[1:3], []byte{0x03, 0x03}) {
+			return nil, fmt.Errorf("unexpcted tls version %x %x", buf[1], buf[2])
 		}
-		if !bytes.Equal(version[:], []byte{0x03, 0x03}) {
-			return nil, fmt.Errorf("unexpected tls version %v", version)
-		}
-		var lengthBuf [2]byte
-		_, err = io.ReadFull(stream, lengthBuf[:])
-		if err != nil {
-			return nil, err
-		}
-		length := binary.BigEndian.Uint16(lengthBuf[:])
-		// TODO check for sane length
+		length := binary.BigEndian.Uint16(buf[3:5])
 		data := make([]byte, length)
 		_, err = io.ReadFull(stream, data)
 		if err != nil {
 			return nil, err
 		}
-		if recType[0] == 0x14 {
+		if recType == 0x14 {
 			continue
 		}
 		return data, nil
