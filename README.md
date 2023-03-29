@@ -10,7 +10,6 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 ## Not supported (yet) ##
 
 - middleproxy protocol
-- IPv6
 - AD_TAG (requires middleproxy)
 
 ## Starting ##
