@@ -279,15 +279,11 @@ func (s *fakeTlsStream) Write(stream net.Conn, b []byte) (n int, err error) {
 		} else {
 			transmitlen = uint16(len(rest))
 		}
-		_, err = stream.Write([]byte{0x17, 0x03, 0x03})
-		if err != nil {
-			return i, err
-		}
-		_, err = stream.Write(binary.BigEndian.AppendUint16(nil, transmitlen))
-		if err != nil {
-			return i, err
-		}
-		_, err = stream.Write(rest[:transmitlen])
+		buf := make([]byte, 0, transmitlen+5)
+		buf = append(buf, 0x17, 0x03, 0x03)
+		buf = binary.BigEndian.AppendUint16(buf, transmitlen)
+		buf = append(buf, rest[:transmitlen]...)
+		_, err = stream.Write(buf)
 		if err != nil {
 			return i, err
 		}
