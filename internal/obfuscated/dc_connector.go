@@ -148,13 +148,15 @@ func (dsc *DcSocksConnector) ConnectHost(host string) (net.Conn, error) {
 }
 
 func dialBoth(host4, host6 string, dialer proxy.Dialer) (c net.Conn, err4, err6 error) {
-	c, err6 = dialer.Dial("tcp", host6)
-	if err6 != nil {
-		c, err4 = dialer.Dial("tcp", host4)
-		if err4 != nil {
-			return nil, err4, err6
+	if host6 != "" {
+		c, err6 = dialer.Dial("tcp", host6)
+		if err6 == nil {
+			return
 		}
-		return
+	}
+	c, err4 = dialer.Dial("tcp", host4)
+	if err4 != nil {
+		return nil, err4, err6
 	}
 	return
 }
