@@ -31,7 +31,7 @@ func handleFallBack(initialPacket []byte, client net.Conn, cfg *config.Config) (
 		return fmt.Errorf("no fall back host")
 	}
 	fmt.Printf("redirect conection to fake host\n")
-	dc, err := dcConnectorFromSocks(cfg.GetDefaultSocks())
+	dc, err := dcConnectorFromSocks(cfg.GetDefaultSocks(), cfg.GetAllowIPv6())
 	if err != nil {
 		return
 	}
