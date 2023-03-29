@@ -32,6 +32,13 @@ func DefaultConfig() *Config {
 	return result
 }
 func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) {
+	//check for ipv6
+	var allowIPv6 bool
+	if parsed.AllowIPv6 == nil {
+		allowIPv6 = false
+	} else {
+		allowIPv6 = *parsed.AllowIPv6
+	}
 	//check for common defsocks
 	var defsocks *Socks5Data
 	if parsed.Socks5 != nil {
@@ -88,6 +95,7 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	}
 	return &Config{
 		listen_Url: parsed.Listen_Url,
+		allowIPv6:  allowIPv6,
 		secret:     parsed.Secret,
 		host:       parsed.Host,
 		defsocks:   defsocks,

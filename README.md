@@ -21,6 +21,7 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 Config file is a toml-formatted file. For example:
 ```toml
 listen_url = "0.0.0.0:6666"
+ipv6 = true # try IPv6 while connecting to DC
 # optional fallback host for dpi connection testers
 host = "google.com:443"
 # You can specify global secret for user _ here

@@ -43,7 +43,7 @@ func handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn
 		panic("user found, but GetUser not")
 	}
 
-	dcconn, err := dcConnectorFromSocks(s)
+	dcconn, err := dcConnectorFromSocks(s, cfg.GetAllowIPv6())
 	if err != nil {
 		return err
 	}
