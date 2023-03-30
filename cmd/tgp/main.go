@@ -19,14 +19,15 @@ func newConnectionListener(conf *config.Config) *connectionListener {
 	}
 }
 
-func (cl *connectionListener) listenForConnections() error {
-	listener, err := net.Listen("tcp", cl.conf.GetListenUrl())
+func (cl *connectionListener) handleLListener(url string) error {
+	fmt.Printf("listen: %s\n", url)
+	l, err := net.Listen("tcp", url)
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
+	defer l.Close()
 	for {
-		conn, err := listener.Accept()
+		conn, err := l.Accept()
 		if err != nil {
 			return err
 		}
@@ -37,6 +38,19 @@ func (cl *connectionListener) listenForConnections() error {
 		oh := o.NewObfuscatedHandler(cl.conf)
 		go oh.HandleObfuscated(conn)
 	}
+}
+
+func (cl *connectionListener) listenForConnections() (errs []error) {
+	var waiters [](<-chan error)
+	for _, url := range cl.conf.GetListenUrl() {
+		waiter := make(chan error, 1)
+		waiters = append(waiters, waiter)
+		go func(u string) { waiter <- cl.handleLListener(u) }(url)
+	}
+	for _, w := range waiters {
+		errs = append(errs, <-w)
+	}
+	return errs
 }
 
 func main() {
@@ -50,7 +64,6 @@ func main() {
 	} else {
 		c = config.DefaultConfig()
 	}
-	fmt.Printf("listen: %s\n", c.GetListenUrl())
 	cl := newConnectionListener(c)
 	err := cl.listenForConnections()
 	if err != nil {
