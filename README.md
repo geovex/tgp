@@ -19,7 +19,7 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 # Config file format
 Config file is a toml-formatted file. For example:
 ```toml
-listen_url = ["0.0.0.0:6666", "[::1]:6666"]
+listen_url = ["0.0.0.0:6666", "[::]:6666"]
 # listen_url = "0.0.0.0:6666" #you can specify one listen address
 ipv6 = true # try IPv6 while connecting to DC
 # optional fallback host for dpi connection testers
