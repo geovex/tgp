@@ -40,17 +40,15 @@ func (cl *connectionListener) handleLListener(url string) error {
 	}
 }
 
-func (cl *connectionListener) listenForConnections() (errs []error) {
-	var waiters [](<-chan error)
+func (cl *connectionListener) listenForConnections() error {
+	waiter := make(chan error, 1)
+	defer close(waiter)
 	for _, url := range cl.conf.GetListenUrl() {
 		waiter := make(chan error, 1)
-		waiters = append(waiters, waiter)
 		go func(u string) { waiter <- cl.handleLListener(u) }(url)
 	}
-	for _, w := range waiters {
-		errs = append(errs, <-w)
-	}
-	return errs
+	err := <-waiter
+	return err
 }
 
 func main() {
