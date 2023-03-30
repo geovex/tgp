@@ -32,6 +32,23 @@ func DefaultConfig() *Config {
 	return result
 }
 func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) {
+	//parse listen url
+	var listenUrls []string
+	if md.Type("listen_url") == "String" {
+		var url string
+		err := md.PrimitiveDecode(parsed.Listen_Url, &url)
+		if err != nil {
+			return nil, err
+		}
+		listenUrls = []string{url}
+	} else if md.Type("listen_url") == "Array" {
+		err := md.PrimitiveDecode(parsed.Listen_Url, &listenUrls)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("listen_url must be string or array")
+	}
 	//check for ipv6
 	var allowIPv6 bool
 	if parsed.AllowIPv6 == nil {
@@ -94,12 +111,12 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 		return nil, fmt.Errorf("specify either secret or users")
 	}
 	return &Config{
-		listen_Url: parsed.Listen_Url,
-		allowIPv6:  allowIPv6,
-		secret:     parsed.Secret,
-		host:       parsed.Host,
-		defsocks:   defsocks,
-		users:      users,
+		listen_Urls: listenUrls,
+		allowIPv6:   allowIPv6,
+		secret:      parsed.Secret,
+		host:        parsed.Host,
+		defsocks:    defsocks,
+		users:       users,
 	}, nil
 }
 

@@ -22,7 +22,7 @@ secret = "dd101112131415161718191a1b1c1d1e1f"
 `
 
 type parsedConfig struct {
-	Listen_Url  string
+	Listen_Url  toml.Primitive
 	Secret      *string
 	Host        *string
 	Socks5      *string
@@ -70,16 +70,16 @@ func (p *parsedUserPrimitive) getSocks(parent *Socks5Data) (s *Socks5Data, err e
 }
 
 type Config struct {
-	listen_Url string
-	allowIPv6  bool
-	secret     *string
-	host       *string
-	defsocks   *Socks5Data
-	users      *userDB
+	listen_Urls []string
+	allowIPv6   bool
+	secret      *string
+	host        *string
+	defsocks    *Socks5Data
+	users       *userDB
 }
 
-func (c *Config) GetListenUrl() string {
-	return c.listen_Url
+func (c *Config) GetListenUrl() []string {
+	return c.listen_Urls
 }
 
 func (c *Config) GetAllowIPv6() bool {
