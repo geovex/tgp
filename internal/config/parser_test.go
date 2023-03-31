@@ -83,3 +83,22 @@ func TestProxyInheritance(t *testing.T) {
 		t.Errorf("another_proxy user socks not 192.168.1.1:9050")
 	}
 }
+
+func TestMultipleListenUrls(t *testing.T) {
+	config := `
+		listen_url = ["0.0.0.0:6666", "[::]:443"]
+		secret = "dd000102030405060708090a0b0c0d0e0f"
+	`
+	var pc parsedConfig
+	md, err := toml.Decode(config, &pc)
+	if err != nil {
+		t.Errorf("multiple listen_url config not decoded: %v", err)
+	}
+	c, err := configFromParsed(&pc, &md)
+	if err != nil {
+		t.Errorf("multiple listen_url config not parsed: %v", err)
+	}
+	if c.GetListenUrl()[0] != "0.0.0.0:6666" || c.GetListenUrl()[1] != "[::]:443" {
+		t.Errorf("multiple listen_url not parsed correctly")
+	}
+}

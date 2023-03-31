@@ -86,7 +86,7 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	}
 	publicKey, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't generate fake key: %w", err)
 	}
 	tlsExtensions = append(tlsExtensions, publicKey...)
 	tlsExtensions = append(tlsExtensions, 0x00, 0x2b, 0x00, 0x02, 0x03, 0x04) // supported versions 3 and 4
@@ -106,7 +106,7 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	httpData := make([]byte, mrand.Intn(4000)+1000)
 	_, err = io.ReadFull(rand.Reader, httpData)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't create fake cert data: %w", err)
 	}
 	toClientHelloPkt = append(toClientHelloPkt, binary.BigEndian.AppendUint16(nil, uint16(len(httpData)))...)
 	toClientHelloPkt = append(toClientHelloPkt, httpData...)
@@ -123,11 +123,11 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	var simpleHeader [tgcrypt.InitialHeaderSize]byte
 	err = fts.ReadFull(client, simpleHeader[:])
 	if err != nil {
-		return err
+		return fmt.Errorf("can't read inner simple header: %w", err)
 	}
 	simpleCtx, err := tgcrypt.SimpleClientCtxFromHeader(simpleHeader, cryptClient.Secret)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't create simple ctx from inner simple header: %w", err)
 	}
 	dc, err := dcConn.ConnectDC(simpleCtx.Dc)
 	if err != nil {
@@ -136,7 +136,7 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	defer dc.Close()
 	cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't create dc ctx: %w", err)
 	}
 	readerJoinChannel := make(chan error, 1)
 	go func() {
@@ -282,6 +282,7 @@ func (s *fakeTlsStream) Write(stream net.Conn, b []byte) (n int, err error) {
 	return len(b), nil
 }
 
+// redirect faketls connection to fallback host in case of failed authentication
 func handleFallBack(initialPacket []byte, client net.Conn, cfg *config.Config) (err error) {
 	defer client.Close()
 	if cfg.GetHost() == nil {

@@ -43,21 +43,27 @@ func getDcAddr(dc int16) (ipv4, ipv6 string, err error) {
 	return dcAddr4, dcAddr6, nil
 }
 
+// Connects client to the specified DC or fallback host
 type DCConnector interface {
+	// Connect to the specified DC by it's number (may be negative)
 	ConnectDC(dc int16) (c net.Conn, err error)
+	// Connects to specific host (for fallback connections)
 	ConnectHost(host string) (c net.Conn, err error)
 }
 
+// Directly connects client
 type DcDirectConnector struct {
 	allowIPv6 bool
 }
 
+// creates a new DcDirectConnector
 func NewDcDirectConnector(allowIPv6 bool) *DcDirectConnector {
 	return &DcDirectConnector{
 		allowIPv6: allowIPv6,
 	}
 }
 
+// Connects client to the specified DC directly
 func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	dcAddr4, dcAddr6, err := getDcAddr(dc)
 	if err != nil {
@@ -65,14 +71,9 @@ func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	}
 	c, err4, err6 := dialBoth(dcAddr4, dcAddr6, proxy.Direct)
 	if err4 != nil || err6 != nil {
-		return nil, fmt.Errorf("can't connect to dc %v, %v", err4, err6)
+		return nil, fmt.Errorf("can't connect to dc %w, %w", err4, err6)
 	}
-	sock, ok := c.(*net.TCPConn)
-	if ok {
-		//fmt.Fprintf("nodelay: %s\n", sock.)
-		sock.SetNoDelay(true)
-
-	}
+	setNoDelay(c)
 	return c, err
 }
 
@@ -81,13 +82,11 @@ func (dcc *DcDirectConnector) ConnectHost(host string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	sock, ok := c.(*net.TCPConn)
-	if ok {
-		sock.SetNoDelay(true)
-	}
+	setNoDelay(c)
 	return c, nil
 }
 
+// Connects client over SOCKS5 proxy
 type DcSocksConnector struct {
 	allowIPv6 bool
 	user      *string
@@ -95,6 +94,7 @@ type DcSocksConnector struct {
 	socks5    string
 }
 
+// Create a new DcSocksConnector
 func NewDcSocksConnector(allowIPv6 bool, socks5 string, user, pass *string) *DcSocksConnector {
 	return &DcSocksConnector{
 		allowIPv6: allowIPv6,
@@ -104,6 +104,7 @@ func NewDcSocksConnector(allowIPv6 bool, socks5 string, user, pass *string) *DcS
 	}
 }
 
+// create proxy dialer according to socks5 url and auth
 func (dsc *DcSocksConnector) createDialer() (proxy.Dialer, error) {
 	var auth *proxy.Auth
 	if dsc.user != nil && dsc.pass != nil {
@@ -114,11 +115,12 @@ func (dsc *DcSocksConnector) createDialer() (proxy.Dialer, error) {
 	}
 	dialer, err := proxy.SOCKS5("tcp", dsc.socks5, auth, proxy.Direct)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("proxy dialer not created: %w", err)
 	}
 	return dialer, nil
 }
 
+// connect to the specified DC over socks5
 func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	dialer, err := dsc.createDialer()
 	if err != nil {
@@ -130,12 +132,9 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	}
 	c, err4, err6 := dialBoth(dcAddr4, dcAddr6, dialer)
 	if err4 != nil && err6 != nil {
-		return nil, fmt.Errorf("can't connect to dc: %v, %v", err4, err6)
+		return nil, fmt.Errorf("can't connect to dc: %w, %w", err4, err6)
 	}
-	sock, ok := c.(*net.TCPConn)
-	if ok {
-		sock.SetNoDelay(true)
-	}
+	setNoDelay(c)
 	return
 }
 
@@ -146,15 +145,13 @@ func (dsc *DcSocksConnector) ConnectHost(host string) (net.Conn, error) {
 	}
 	c, err := dialer.Dial("tcp", host)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't connect to host %w", err)
 	}
-	sock, ok := c.(*net.TCPConn)
-	if ok {
-		sock.SetNoDelay(true)
-	}
+	setNoDelay(c)
 	return c, nil
 }
 
+// Try to dial both ipv4 and ipv6 addresses and return resulting connection
 func dialBoth(host4, host6 string, dialer proxy.Dialer) (c net.Conn, err4, err6 error) {
 	if host6 != "" {
 		c, err6 = dialer.Dial("tcp", host6)
@@ -169,10 +166,19 @@ func dialBoth(host4, host6 string, dialer proxy.Dialer) (c net.Conn, err4, err6 
 	return
 }
 
+// if socks5 info is specified, return socks5 DcSocksConnector else return direct DcDirectConnector
 func dcConnectorFromSocks(s *config.Socks5Data, allowIPv6 bool) (conn DCConnector, err error) {
 	if s == nil {
 		return NewDcDirectConnector(allowIPv6), nil
 	} else {
 		return NewDcSocksConnector(allowIPv6, s.Url, s.User, s.Pass), nil
+	}
+}
+
+// Set nodelay to supposedly socket object. Do nothing otherwise.
+func setNoDelay(c net.Conn) {
+	sock, ok := c.(*net.TCPConn)
+	if ok {
+		sock.SetNoDelay(true)
 	}
 }
