@@ -77,7 +77,15 @@ func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 }
 
 func (dcc *DcDirectConnector) ConnectHost(host string) (net.Conn, error) {
-	return net.Dial("tcp", host)
+	c, err := net.Dial("tcp", host)
+	if err != nil {
+		return nil, err
+	}
+	sock, ok := c.(*net.TCPConn)
+	if ok {
+		sock.SetNoDelay(true)
+	}
+	return c, nil
 }
 
 type DcSocksConnector struct {
