@@ -34,7 +34,7 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 		return true
 	})
 	if user == nil {
-		return handleFallBack(initialPacket[:], stream, o.config)
+		return o.handleFallBack(initialPacket[:], stream)
 	}
 	//connect to dc
 	s, err := o.config.GetSocks5(*user)
