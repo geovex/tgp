@@ -17,10 +17,10 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn) (err error) {
+func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte) (err error) {
 	var tlsHandshake [tgcrypt.FakeTlsHandshakeLen]byte
 	copy(tlsHandshake[:tgcrypt.FakeTlsHandshakeLen], initialPacket[:])
-	_, err = io.ReadFull(stream, tlsHandshake[tgcrypt.InitialHeaderSize:])
+	_, err = io.ReadFull(o.client, tlsHandshake[tgcrypt.InitialHeaderSize:])
 	var clientCtx *tgcrypt.FakeTlsCtx
 	if err != nil {
 		return
@@ -42,7 +42,7 @@ func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.InitialHeaderSi
 		}
 	})
 	if user == nil {
-		return o.handleFallBack(tlsHandshake[:], stream)
+		return o.handleFallBack(tlsHandshake[:])
 	}
 	s, err := o.config.GetSocks5(*user)
 	if err != nil {
@@ -52,7 +52,7 @@ func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.InitialHeaderSi
 	if err != nil {
 		return err
 	}
-	transceiveFakeTls(stream, clientCtx, dcconn)
+	transceiveFakeTls(o.client, clientCtx, dcconn)
 	fmt.Printf("Client disconnected %s (faketls) \n", *user)
 	return nil
 }
@@ -62,11 +62,12 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	// checking timestamp
 	// TODO: consider it optional
 	skew := time.Now().Unix() - int64(cryptClient.Timestamp)
-	if skew < 0 {
-		skew = -skew
+	skewAbs := skew
+	if skewAbs < 0 {
+		skewAbs = -skewAbs
 	}
-	if skew > 1000 {
-		return fmt.Errorf("time skew too big")
+	if skewAbs > 1000 {
+		return fmt.Errorf("time skew too big: %d", skewAbs)
 	}
 	zero32 := make([]byte, 32)
 	sessionIdLen := cryptClient.Header[43]

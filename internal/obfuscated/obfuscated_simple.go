@@ -8,8 +8,8 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte, stream net.Conn) (err error) {
-	defer stream.Close()
+func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte) (err error) {
+	defer o.client.Close()
 	var cryptClient *tgcrypt.SimpleClientCtx
 	var user *string
 	o.config.IterateUsers(func(u, s string) bool {
@@ -34,7 +34,7 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 		return true
 	})
 	if user == nil {
-		return o.handleFallBack(initialPacket[:], stream)
+		return o.handleFallBack(initialPacket[:])
 	}
 	//connect to dc
 	s, err := o.config.GetSocks5(*user)
@@ -55,7 +55,7 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 	if err != nil {
 		return err
 	}
-	transceiveSimple(stream, cryptClient, dcConnection, cryptDc)
+	transceiveSimple(o.client, cryptClient, dcConnection, cryptDc)
 	fmt.Printf("Client disconnected %s\n", *user)
 	return nil
 }

@@ -35,8 +35,8 @@ func (cl *connectionListener) handleLListener(url string) error {
 		if ok {
 			sock.SetNoDelay(true)
 		}
-		oh := o.NewObfuscatedHandler(cl.conf)
-		go oh.HandleObfuscated(conn)
+		oh := o.NewObfuscatedHandler(cl.conf, conn)
+		go oh.HandleObfuscated()
 	}
 }
 

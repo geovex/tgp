@@ -11,37 +11,39 @@ import (
 )
 
 type ObfuscatedHandler struct {
+	client net.Conn
 	config *config.Config
 }
 
-func NewObfuscatedHandler(cfg *config.Config) *ObfuscatedHandler {
+func NewObfuscatedHandler(cfg *config.Config, client net.Conn) *ObfuscatedHandler {
 	return &ObfuscatedHandler{
 		config: cfg,
+		client: client,
 	}
 }
 
-func (o *ObfuscatedHandler) HandleObfuscated(stream net.Conn) (err error) {
-	defer stream.Close()
+func (o *ObfuscatedHandler) HandleObfuscated() (err error) {
+	defer o.client.Close()
 	var initialPacket [tgcrypt.InitialHeaderSize]byte
-	n, err := io.ReadFull(stream, initialPacket[:])
+	n, err := io.ReadFull(o.client, initialPacket[:])
 	if err != nil {
 		if o.config.GetHost() != nil {
-			return o.handleFallBack(initialPacket[:n], stream)
+			return o.handleFallBack(initialPacket[:n])
 		} else {
 			return fmt.Errorf("failed to read initial packet: %w", err)
 		}
 	}
 	//check for tls in handshake
 	if bytes.Equal(initialPacket[0:len(tgcrypt.FakeTlsHeader)], tgcrypt.FakeTlsHeader[:]) {
-		return o.handleFakeTls(initialPacket, stream)
+		return o.handleFakeTls(initialPacket)
 	} else {
-		return o.handleSimple(initialPacket, stream)
+		return o.handleSimple(initialPacket)
 	}
 }
 
 // redirect connection to fallback host in case of failed authentication
-func (o *ObfuscatedHandler) handleFallBack(initialPacket []byte, client net.Conn) (err error) {
-	defer client.Close()
+func (o *ObfuscatedHandler) handleFallBack(initialPacket []byte) (err error) {
+	defer o.client.Close()
 	if o.config.GetHost() == nil {
 		return fmt.Errorf("no fall back host")
 	}
@@ -64,7 +66,7 @@ func (o *ObfuscatedHandler) handleFallBack(initialPacket []byte, client net.Conn
 	go func() {
 		var buf [2048]byte
 		for {
-			n, err := client.Read(buf[:])
+			n, err := o.client.Read(buf[:])
 			if err != nil {
 				reader <- err
 				return
@@ -84,7 +86,7 @@ func (o *ObfuscatedHandler) handleFallBack(initialPacket []byte, client net.Conn
 				writer <- err
 				return
 			}
-			_, err = client.Write(buf[:n])
+			_, err = o.client.Write(buf[:n])
 			if err != nil {
 				writer <- err
 				return
