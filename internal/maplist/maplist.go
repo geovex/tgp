@@ -20,9 +20,16 @@ func (m *MapList[K, V]) Add(key K, value V) {
 	m.Data[key] = []V{value}
 }
 
-func (m *MapList[K, V]) GetRandom(key K) V {
-	vl := m.Data[key]
+func (m *MapList[K, V]) GetRandom(key K) (V, bool) {
+	var zero V
+	vl, ok := m.Data[key]
+	if !ok {
+		return zero, false
+	}
 	vll := len(vl)
+	if vll == 0 {
+		return zero, false
+	}
 	randIdx := rand.Intn(vll)
-	return vl[randIdx]
+	return vl[randIdx], true
 }

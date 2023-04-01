@@ -40,9 +40,12 @@ func getDcAddr(dc int16) (ipv4, ipv6 string, err error) {
 	if dc < 1 || dc > dcMaxIdx {
 		return "", "", fmt.Errorf("invalid dc number %d", dc)
 	}
-	dcAddr4 := dc_ip4.GetRandom(dc)
-	dcAddr6 := dc_ip6.GetRandom(dc)
-	return dcAddr4, dcAddr6, nil
+	ipv4, _ = dc_ip4.GetRandom(dc)
+	ipv6, _ = dc_ip6.GetRandom(dc)
+	if ipv4 == "" && ipv6 == "" {
+		return "", "", fmt.Errorf("invalid dc number %d", dc)
+	}
+	return ipv4, ipv6, nil
 }
 
 // Connects client to the specified DC or fallback host
