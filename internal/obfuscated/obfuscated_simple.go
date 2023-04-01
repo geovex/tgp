@@ -26,7 +26,7 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 			return false
 		}
 		// basic afterchecks
-		if int(cryptClient.Dc) > len(dc_ip4) || int(cryptClient.Dc) < -len(dc_ip4) {
+		if cryptClient.Dc > dcMaxIdx || cryptClient.Dc < -dcMaxIdx || cryptClient.Dc == 0 {
 			return false
 		}
 		user = &u

@@ -2,44 +2,46 @@ package obfuscated
 
 import (
 	"fmt"
-	"math/rand"
 	"net"
 
 	"github.com/geovex/tgp/internal/config"
+	"github.com/geovex/tgp/internal/maplist"
 	"golang.org/x/net/proxy"
 )
 
 const dc_port = "443"
 
-var dc_ip4 = [...][]string{
-	{"149.154.175.50"},
-	{"149.154.167.51", "95.161.76.100"},
-	{"149.154.175.100"},
-	{"149.154.167.91"},
-	{"149.154.171.5"},
+const dcMaxIdx = int16(5)
+
+var dc_ip4 = maplist.MapList[int16, string]{
+	Data: map[int16][]string{
+		1: {"149.154.175.50:443"},
+		2: {"149.154.167.51:443", "95.161.76.100:443"},
+		3: {"149.154.175.100:443"},
+		4: {"149.154.167.91:443"},
+		5: {"149.154.171.5:443"},
+	},
 }
 
-var dc_ip6 = [...][]string{
-	{"[2001:b28:f23d:f001::a]"},
-	{"[2001:67c:04e8:f002::a]"},
-	{"[2001:b28:f23d:f003::a]"},
-	{"[2001:67c:04e8:f004::a]"},
-	{"[2001:b28:f23f:f005::a]"},
+var dc_ip6 = maplist.MapList[int16, string]{
+	Data: map[int16][]string{
+		1: {"[2001:b28:f23d:f001::a]:443"},
+		2: {"[2001:67c:04e8:f002::a]:443"},
+		3: {"[2001:b28:f23d:f003::a]:443"},
+		4: {"[2001:67c:04e8:f004::a]:443"},
+		5: {"[2001:b28:f23f:f005::a]:443"},
+	},
 }
 
 func getDcAddr(dc int16) (ipv4, ipv6 string, err error) {
 	if dc < 0 {
 		dc = -dc
 	}
-	if dc < 1 || dc > int16(len(dc_ip4)) {
+	if dc < 1 || dc > dcMaxIdx {
 		return "", "", fmt.Errorf("invalid dc number %d", dc)
 	}
-	dcIdxList := dc_ip4[dc-1]
-	dcSubidx := rand.Intn(len(dcIdxList))
-	dcAddr4 := dc_ip4[dc-1][dcSubidx] + ":" + dc_port
-	dcIdxList = dc_ip6[dc-1]
-	dcSubidx = rand.Intn(len(dcIdxList))
-	dcAddr6 := dc_ip6[dc-1][dcSubidx] + ":" + dc_port
+	dcAddr4 := dc_ip4.GetRandom(dc)
+	dcAddr6 := dc_ip6.GetRandom(dc)
 	return dcAddr4, dcAddr6, nil
 }
 
