@@ -2,6 +2,7 @@ package obfuscated
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"runtime"
 
@@ -60,7 +61,7 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 	return nil
 }
 
-func transceiveSimple(client net.Conn, cryptClient *tgcrypt.SimpleClientCtx, dc net.Conn, cryptDC *tgcrypt.DcCtx) {
+func transceiveSimple(client net.Conn, cryptClient *tgcrypt.SimpleClientCtx, dc io.ReadWriteCloser, cryptDC *tgcrypt.DcCtx) {
 	readerJoinChannel := make(chan error, 1)
 	go func() {
 		defer client.Close()

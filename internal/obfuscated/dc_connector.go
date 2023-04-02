@@ -2,14 +2,13 @@ package obfuscated
 
 import (
 	"fmt"
+	"io"
 	"net"
 
 	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/maplist"
 	"golang.org/x/net/proxy"
 )
-
-const dc_port = "443"
 
 const dcMaxIdx = int16(5)
 
@@ -51,7 +50,7 @@ func getDcAddr(dc int16) (ipv4, ipv6 string, err error) {
 // Connects client to the specified DC or fallback host
 type DCConnector interface {
 	// Connect to the specified DC by it's number (may be negative)
-	ConnectDC(dc int16) (c net.Conn, err error)
+	ConnectDC(dc int16) (c io.ReadWriteCloser, err error)
 	// Connects to specific host (for fallback connections)
 	ConnectHost(host string) (c net.Conn, err error)
 }
@@ -69,7 +68,7 @@ func NewDcDirectConnector(allowIPv6 bool) *DcDirectConnector {
 }
 
 // Connects client to the specified DC directly
-func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
+func (dcc *DcDirectConnector) ConnectDC(dc int16) (stream io.ReadWriteCloser, err error) {
 	dcAddr4, dcAddr6, err := getDcAddr(dc)
 	if err != nil {
 		return nil, err
@@ -129,7 +128,7 @@ func (dsc *DcSocksConnector) createDialer() (proxy.Dialer, error) {
 }
 
 // connect to the specified DC over socks5
-func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
+func (dsc *DcSocksConnector) ConnectDC(dc int16) (io.ReadWriteCloser, error) {
 	dialer, err := dsc.createDialer()
 	if err != nil {
 		return nil, err
@@ -146,7 +145,7 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 		return nil, fmt.Errorf("can't connect to dc: %w, %w", err4, err6)
 	}
 	setNoDelay(c)
-	return
+	return c, nil
 }
 
 func (dsc *DcSocksConnector) ConnectHost(host string) (net.Conn, error) {
