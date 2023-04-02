@@ -74,6 +74,9 @@ func (dcc *DcDirectConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	if err != nil {
 		return nil, err
 	}
+	if !dcc.allowIPv6 {
+		dcAddr6 = ""
+	}
 	c, err4, err6 := dialBoth(dcAddr4, dcAddr6, proxy.Direct)
 	if err4 != nil || err6 != nil {
 		return nil, fmt.Errorf("can't connect to dc %w, %w", err4, err6)
@@ -134,6 +137,9 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (c net.Conn, err error) {
 	dcAddr4, dcAddr6, err := getDcAddr(dc)
 	if err != nil {
 		return nil, err
+	}
+	if !dsc.allowIPv6 {
+		dcAddr6 = ""
 	}
 	c, err4, err6 := dialBoth(dcAddr4, dcAddr6, dialer)
 	if err4 != nil && err6 != nil {
