@@ -12,6 +12,7 @@ import (
 	mrand "math/rand"
 	"net"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/geovex/tgp/internal/tgcrypt"
@@ -119,9 +120,9 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	if err != nil {
 		return err
 	}
-	fts := newFakeTlsStream(cryptClient)
+	fts := newFakeTlsStream2(client, cryptClient)
 	var simpleHeader [tgcrypt.InitialHeaderSize]byte
-	err = fts.ReadFull(client, simpleHeader[:])
+	_, err = io.ReadFull(fts, simpleHeader[:])
 	if err != nil {
 		return fmt.Errorf("can't read inner simple header: %w", err)
 	}
@@ -149,7 +150,7 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 		}
 		buf := make([]byte, 2048)
 		for {
-			n, err := fts.Read(client, buf)
+			n, err := fts.Read(buf)
 			if err != nil || n == 0 {
 				readerJoinChannel <- err
 				return
@@ -176,7 +177,7 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 			}
 			cryptDc.DecryptNext(buf[:n])
 			simpleCtx.EncryptNext(buf[:n])
-			_, err = fts.Write(client, buf[:n])
+			_, err = fts.Write(buf[:n])
 			if err != nil {
 				readerJoinChannel <- err
 				return
@@ -189,21 +190,26 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 }
 
 type fakeTlsStream struct {
-	cryptCtx   *tgcrypt.FakeTlsCtx
-	readerTail []byte
+	readlock, writelock sync.Mutex
+	client              io.ReadWriteCloser
+	cryptCtx            *tgcrypt.FakeTlsCtx
+	readerTail          []byte
 }
 
-func newFakeTlsStream(crypt *tgcrypt.FakeTlsCtx) *fakeTlsStream {
+func newFakeTlsStream2(client io.ReadWriteCloser, crypt *tgcrypt.FakeTlsCtx) *fakeTlsStream {
 	return &fakeTlsStream{
+		readlock:   sync.Mutex{},
+		writelock:  sync.Mutex{},
+		client:     client,
 		cryptCtx:   crypt,
 		readerTail: []byte{},
 	}
 }
 
-func (s *fakeTlsStream) readPacket(stream net.Conn) ([]byte, error) {
+func (f *fakeTlsStream) readPacket() ([]byte, error) {
 	var buf [5]byte
 	for {
-		_, err := io.ReadFull(stream, buf[:])
+		_, err := io.ReadFull(f.client, buf[:])
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +222,7 @@ func (s *fakeTlsStream) readPacket(stream net.Conn) ([]byte, error) {
 		}
 		length := binary.BigEndian.Uint16(buf[3:5])
 		data := make([]byte, length)
-		_, err = io.ReadFull(stream, data)
+		_, err = io.ReadFull(f.client, data)
 		if err != nil {
 			return nil, err
 		}
@@ -227,38 +233,29 @@ func (s *fakeTlsStream) readPacket(stream net.Conn) ([]byte, error) {
 	}
 }
 
-func (s *fakeTlsStream) ReadFull(stream net.Conn, b []byte) (err error) {
-	for len(s.readerTail) < len(b) {
-		data, err := s.readPacket(stream)
-		if err != nil {
-			return err
-		}
-		s.readerTail = append(s.readerTail, data...)
-	}
-	copy(b, s.readerTail)
-	s.readerTail = s.readerTail[len(b):]
-	return nil
-}
-
-func (s *fakeTlsStream) Read(stream net.Conn, b []byte) (n int, err error) {
+func (f *fakeTlsStream) Read(b []byte) (n int, err error) {
+	f.readlock.Lock()
+	defer f.readlock.Unlock()
 	var data []byte
-	if len(s.readerTail) > 0 {
-		n = copy(b, s.readerTail)
-		s.readerTail = s.readerTail[n:]
+	if len(f.readerTail) > 0 {
+		n = copy(b, f.readerTail)
+		f.readerTail = f.readerTail[n:]
 		return n, nil
 	} else {
-		data, err = s.readPacket(stream)
+		data, err = f.readPacket()
 		if err != nil {
 			return 0, err
 		}
-		s.readerTail = append(s.readerTail, data...)
-		n = copy(b, s.readerTail)
-		s.readerTail = s.readerTail[n:]
+		f.readerTail = append(f.readerTail, data...)
+		n = copy(b, f.readerTail)
+		f.readerTail = f.readerTail[n:]
 		return n, nil
 	}
 }
 
-func (s *fakeTlsStream) Write(stream net.Conn, b []byte) (n int, err error) {
+func (f *fakeTlsStream) Write(b []byte) (n int, err error) {
+	f.writelock.Lock()
+	defer f.writelock.Unlock()
 	i := 0
 	const chunkSize = 16384 + 24
 	for i < len(b) {
@@ -273,11 +270,20 @@ func (s *fakeTlsStream) Write(stream net.Conn, b []byte) (n int, err error) {
 		buf = append(buf, 0x17, 0x03, 0x03)
 		buf = binary.BigEndian.AppendUint16(buf, transmitlen)
 		buf = append(buf, rest[:transmitlen]...)
-		_, err = stream.Write(buf)
+		_, err = f.client.Write(buf)
 		if err != nil {
 			return i, err
 		}
 		i += int(transmitlen)
 	}
 	return len(b), nil
+}
+
+func (f *fakeTlsStream) Close() error {
+	f.readlock.Lock()
+	defer f.readlock.Unlock()
+	f.writelock.Lock()
+	defer f.writelock.Unlock()
+	f.readerTail = []byte{}
+	return f.client.Close()
 }
