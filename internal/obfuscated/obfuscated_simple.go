@@ -82,8 +82,8 @@ func NewSimpleStream(client io.ReadWriteCloser, ctx *tgcrypt.SimpleClientCtx) *S
 }
 
 func (s *SimpleStream) Read(b []byte) (n int, err error) {
-	s.readlock.RLock()
-	defer s.readlock.RUnlock()
+	s.readlock.Lock()
+	defer s.readlock.Unlock()
 	n, err = s.client.Read(b)
 	s.ctx.DecryptNext(b[:n])
 	return
