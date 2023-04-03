@@ -97,3 +97,45 @@ func (o *ObfuscatedHandler) handleFallBack(initialPacket []byte) (err error) {
 	<-writer
 	return nil
 }
+
+func transceiveStreams(client io.ReadWriteCloser, dc io.ReadWriteCloser) (err1, err2 error) {
+	readerJoinChannel := make(chan error, 1)
+	go func() {
+		defer client.Close()
+		defer dc.Close()
+		buf := make([]byte, 2048)
+		for {
+			size, err := client.Read(buf)
+			if err != nil {
+				readerJoinChannel <- err
+				return
+			}
+			_, err = dc.Write(buf[:size])
+			if err != nil {
+				readerJoinChannel <- err
+				return
+			}
+		}
+	}()
+	writerJoinChannel := make(chan error, 1)
+	go func() {
+		defer client.Close()
+		defer dc.Close()
+		buf := make([]byte, 2048)
+		for {
+			size, err := dc.Read(buf)
+			if err != nil {
+				writerJoinChannel <- err
+				return
+			}
+			_, err = client.Write(buf[:size])
+			if err != nil {
+				writerJoinChannel <- err
+				return
+			}
+		}
+	}()
+	err1 = <-readerJoinChannel
+	err2 = <-writerJoinChannel
+	return
+}

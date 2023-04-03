@@ -59,7 +59,6 @@ func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.InitialHeaderSi
 }
 
 func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn DCConnector) error {
-	defer client.Close()
 	// checking timestamp
 	// TODO: consider it optional
 	skew := time.Now().Unix() - int64(cryptClient.Timestamp)
@@ -120,7 +119,7 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	if err != nil {
 		return err
 	}
-	fts := newFakeTlsStream2(client, cryptClient)
+	fts := newFakeTlsStream(client, cryptClient)
 	var simpleHeader [tgcrypt.InitialHeaderSize]byte
 	_, err = io.ReadFull(fts, simpleHeader[:])
 	if err != nil {
@@ -130,78 +129,36 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	if err != nil {
 		return fmt.Errorf("can't create simple ctx from inner simple header: %w", err)
 	}
+	simpleStream := NewSimpleStream(fts, simpleCtx)
+	defer simpleStream.Close()
 	dc, err := dcConn.ConnectDC(simpleCtx.Dc)
 	if err != nil {
 		return err
 	}
-	defer dc.Close()
 	cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
 	if err != nil {
 		return fmt.Errorf("can't create dc ctx: %w", err)
 	}
-	readerJoinChannel := make(chan error, 1)
-	go func() {
-		defer client.Close()
-		defer dc.Close()
-		_, err := dc.Write(cryptDc.Nonce[:])
-		if err != nil {
-			readerJoinChannel <- err
-			return
-		}
-		buf := make([]byte, 2048)
-		for {
-			n, err := fts.Read(buf)
-			if err != nil || n == 0 {
-				readerJoinChannel <- err
-				return
-			}
-			simpleCtx.DecryptNext(buf[:n])
-			cryptDc.EncryptNext(buf[:n])
-			_, err = dc.Write(buf[:n])
-			if err != nil {
-				readerJoinChannel <- err
-				return
-			}
-		}
-	}()
-	writerJoinChannel := make(chan error, 1)
-	go func() {
-		defer client.Close()
-		defer dc.Close()
-		buf := make([]byte, 2048)
-		for {
-			n, err := dc.Read(buf)
-			if err != nil || n == 0 {
-				writerJoinChannel <- err
-				return
-			}
-			cryptDc.DecryptNext(buf[:n])
-			simpleCtx.EncryptNext(buf[:n])
-			_, err = fts.Write(buf[:n])
-			if err != nil {
-				readerJoinChannel <- err
-				return
-			}
-		}
-	}()
-	<-readerJoinChannel
-	<-writerJoinChannel
+	dcStream, err := LoginDC(dc, cryptDc)
+	if err != nil {
+		return fmt.Errorf("can't create dc stream: %w", err)
+	}
+	defer dcStream.Close()
+	transceiveStreams(simpleStream, dcStream)
 	return nil
 }
 
 type fakeTlsStream struct {
 	readlock, writelock sync.Mutex
 	client              io.ReadWriteCloser
-	cryptCtx            *tgcrypt.FakeTlsCtx
 	readerTail          []byte
 }
 
-func newFakeTlsStream2(client io.ReadWriteCloser, crypt *tgcrypt.FakeTlsCtx) *fakeTlsStream {
+func newFakeTlsStream(client io.ReadWriteCloser, crypt *tgcrypt.FakeTlsCtx) *fakeTlsStream {
 	return &fakeTlsStream{
 		readlock:   sync.Mutex{},
 		writelock:  sync.Mutex{},
 		client:     client,
-		cryptCtx:   crypt,
 		readerTail: []byte{},
 	}
 }
@@ -280,10 +237,14 @@ func (f *fakeTlsStream) Write(b []byte) (n int, err error) {
 }
 
 func (f *fakeTlsStream) Close() error {
+	err := f.client.Close()
+	if err != nil {
+		return err
+	}
 	f.readlock.Lock()
 	defer f.readlock.Unlock()
 	f.writelock.Lock()
 	defer f.writelock.Unlock()
 	f.readerTail = []byte{}
-	return f.client.Close()
+	return nil
 }

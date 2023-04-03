@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/maplist"
+	"github.com/geovex/tgp/internal/tgcrypt"
 	"golang.org/x/net/proxy"
 )
 
@@ -191,4 +193,46 @@ func setNoDelay(c net.Conn) {
 	if ok {
 		sock.SetNoDelay(true)
 	}
+}
+
+type DCStream struct {
+	readlock, writelock sync.RWMutex
+	sock                io.ReadWriteCloser
+	ctx                 *tgcrypt.DcCtx
+}
+
+func LoginDC(sock io.ReadWriteCloser, ctx *tgcrypt.DcCtx) (*DCStream, error) {
+	_, err := sock.Write(ctx.Nonce[:])
+	if err != nil {
+		return nil, err
+	}
+	return &DCStream{
+		readlock:  sync.RWMutex{},
+		writelock: sync.RWMutex{},
+		sock:      sock,
+		ctx:       ctx,
+	}, nil
+}
+
+func (dc *DCStream) Read(b []byte) (n int, err error) {
+	dc.readlock.RLock()
+	defer dc.readlock.RUnlock()
+	n, err = dc.sock.Read(b)
+	dc.ctx.DecryptNext(b[:n])
+	return
+}
+
+func (dc *DCStream) Write(b []byte) (n int, err error) {
+	dc.writelock.RLock()
+	defer dc.writelock.RUnlock()
+	// TODO may be preserve ctx state
+	writebuf := make([]byte, 0, len(b))
+	writebuf = append(writebuf, b...)
+	dc.ctx.EncryptNext(writebuf)
+	n, err = dc.sock.Write(writebuf)
+	return
+}
+
+func (dc *DCStream) Close() error {
+	return dc.sock.Close()
 }
