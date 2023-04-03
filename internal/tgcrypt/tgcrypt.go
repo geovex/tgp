@@ -11,6 +11,8 @@ const NonceSize = 64
 
 type Nonce [NonceSize]byte
 
+const MaxPayloadSize = 1024 * 1024 // 131200 // supposed to be 1<<17-1 but i've 131176 in abridged and more in padded
+
 var WrongNonceStarters = [...][]byte{
 	{0xef},                   // abridged header
 	{0x48, 0x45, 0x41, 0x44}, //HEAD
