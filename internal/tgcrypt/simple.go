@@ -9,13 +9,12 @@ import (
 
 // struct that handles encryption
 type SimpleClientCtx struct {
-	Header     []byte
-	Secret     *Secret
-	Protocol   uint8
-	Dc         int16
-	Random     [2]byte
-	fromClient cipher.Stream
-	toClient   cipher.Stream
+	Header   []byte
+	Secret   *Secret
+	Protocol uint8
+	Dc       int16
+	Random   [2]byte
+	encdec   EncDec
 }
 
 const (
@@ -72,21 +71,23 @@ func SimpleClientCtxFromHeader(header [InitialHeaderSize]byte, secret *Secret) (
 	copy(random[:], buf[62:64])
 	// fmt.Printf("protocol: %x. DC %x\n", protocol, dc)
 	c = &SimpleClientCtx{
-		Header:     header[:],
-		Secret:     secret,
-		fromClient: fromClientStream,
-		toClient:   toClientStream,
-		Protocol:   protocol,
-		Dc:         dc,
-		Random:     random,
+		Header:   header[:],
+		Secret:   secret,
+		Protocol: protocol,
+		Dc:       dc,
+		Random:   random,
+		encdec: EncDec{
+			reader: fromClientStream,
+			writer: toClientStream,
+		},
 	}
 	return
 }
 
 func (c *SimpleClientCtx) DecryptNext(buf []byte) {
-	c.fromClient.XORKeyStream(buf, buf)
+	c.encdec.DecryptNext(buf)
 }
 
 func (c *SimpleClientCtx) EncryptNext(buf []byte) {
-	c.toClient.XORKeyStream(buf, buf)
+	c.encdec.EncryptNext(buf)
 }

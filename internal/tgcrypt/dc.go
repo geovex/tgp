@@ -7,8 +7,7 @@ import (
 
 type DcCtx struct {
 	Nonce  [InitialHeaderSize]byte
-	toDc   cipher.Stream
-	fromDc cipher.Stream
+	encdec EncDec
 }
 
 func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
@@ -39,17 +38,19 @@ func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
 	toDcStream.XORKeyStream(nonce[:], header[:])
 	copy(nonce[:56], header[:56])
 	c = &DcCtx{
-		Nonce:  nonce,
-		toDc:   toDcStream,
-		fromDc: fromDcStream,
+		Nonce: nonce,
+		encdec: EncDec{
+			reader: fromDcStream,
+			writer: toDcStream,
+		},
 	}
 	return
 }
 
 func (c *DcCtx) DecryptNext(buf []byte) {
-	c.fromDc.XORKeyStream(buf, buf)
+	c.encdec.DecryptNext(buf)
 }
 
 func (c *DcCtx) EncryptNext(buf []byte) {
-	c.toDc.XORKeyStream(buf, buf)
+	c.encdec.EncryptNext(buf)
 }
