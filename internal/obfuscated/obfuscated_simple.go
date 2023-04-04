@@ -60,8 +60,9 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 	defer dcStream.Close()
 	clientStream := NewSimpleStream(o.client, cryptClient)
 	defer clientStream.Close()
-	transceiveStreams(clientStream, dcStream)
-	fmt.Printf("Client disconnected %s\n", *user)
+	_, _ = transceiveStreams(clientStream, dcStream)
+	//err1, err2 := transceiveStreams(clientStream, dcStream)
+	//fmt.Printf("Client disconnected %s: %v %v \n", *user, err1, err2)
 	return nil
 }
 

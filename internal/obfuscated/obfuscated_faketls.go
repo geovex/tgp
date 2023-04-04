@@ -53,9 +53,9 @@ func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.InitialHeaderSi
 	if err != nil {
 		return err
 	}
-	transceiveFakeTls(o.client, clientCtx, dcconn)
+	err = transceiveFakeTls(o.client, clientCtx, dcconn)
 	fmt.Printf("Client disconnected %s (faketls) \n", *user)
-	return nil
+	return err
 }
 
 func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn DCConnector) error {
@@ -144,7 +144,9 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 		return fmt.Errorf("can't create dc stream: %w", err)
 	}
 	defer dcStream.Close()
-	transceiveStreams(simpleStream, dcStream)
+	_, _ = transceiveStreams(simpleStream, dcStream)
+	//err1, err2 := transceiveStreams(simpleStream, dcStream)
+	//fmt.Printf("faketls transceiver ended: %v %v \n", err1, err2)
 	return nil
 }
 
@@ -214,7 +216,7 @@ func (f *fakeTlsStream) Write(b []byte) (n int, err error) {
 	f.writelock.Lock()
 	defer f.writelock.Unlock()
 	i := 0
-	const chunkSize = 16384 + 24
+	const chunkSize = 1 << 14 // mtproto has 16384 + 24
 	for i < len(b) {
 		rest := b[i:]
 		var transmitlen uint16
