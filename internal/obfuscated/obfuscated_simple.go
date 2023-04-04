@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"runtime"
-	"sync"
 
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
@@ -66,40 +65,6 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 	return nil
 }
 
-type SimpleStream struct {
-	readlock, writelock sync.RWMutex
-	client              io.ReadWriteCloser
-	ctx                 *tgcrypt.SimpleClientCtx
-}
-
-func NewSimpleStream(client io.ReadWriteCloser, ctx *tgcrypt.SimpleClientCtx) *SimpleStream {
-	return &SimpleStream{
-		client:    client,
-		ctx:       ctx,
-		readlock:  sync.RWMutex{},
-		writelock: sync.RWMutex{},
-	}
-}
-
-func (s *SimpleStream) Read(b []byte) (n int, err error) {
-	s.readlock.Lock()
-	defer s.readlock.Unlock()
-	n, err = s.client.Read(b)
-	s.ctx.DecryptNext(b[:n])
-	return
-}
-
-func (s *SimpleStream) Write(b []byte) (n int, err error) {
-	s.writelock.Lock()
-	defer s.writelock.Unlock()
-	// TODO may be preserve encryption state
-	writebuf := make([]byte, 0, len(b))
-	writebuf = append(writebuf, b...)
-	s.ctx.EncryptNext(writebuf)
-	n, err = s.client.Write(writebuf)
-	return
-}
-
-func (s *SimpleStream) Close() error {
-	return s.client.Close()
+func NewSimpleStream(client io.ReadWriteCloser, ctx *tgcrypt.SimpleClientCtx) *encDecStream {
+	return newEncDecStream(client, ctx)
 }
