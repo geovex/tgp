@@ -213,6 +213,7 @@ func LoginDC(sock io.ReadWriteCloser, protocol uint8) (io.ReadWriteCloser, error
 }
 
 func ObfuscateDC(sock io.ReadWriteCloser, ctx *tgcrypt.DcCtx) (*encDecStream, error) {
+	// TODO: handle negative dc
 	_, err := sock.Write(ctx.Nonce[:])
 	if err != nil {
 		return nil, err
