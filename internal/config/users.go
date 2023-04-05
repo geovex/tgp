@@ -1,9 +1,11 @@
 package config
 
 type User struct {
-	Name   string
-	Secret string
-	Socks5 *Socks5Data
+	Name        string
+	Secret      string
+	Socks5      *string
+	Socks5_user *string
+	Socks5_pass *string
 }
 
 type userDB struct {
@@ -16,11 +18,13 @@ func NewUsers() *userDB {
 	}
 }
 
-func newOneUser(secret string, socks *Socks5Data) *userDB {
+func newOneUser(secret string, socks5 *string, user *string, pass *string) *userDB {
 	defuser := User{
-		Name:   "_",
-		Secret: secret,
-		Socks5: socks,
+		Name:        "_",
+		Secret:      secret,
+		Socks5:      socks5,
+		Socks5_user: user,
+		Socks5_pass: pass,
 	}
 	users := NewUsers()
 	users.Users["_"] = &defuser

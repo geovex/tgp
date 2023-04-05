@@ -36,12 +36,12 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 		return o.handleFallBack(initialPacket[:])
 	}
 	//connect to dc
-	s, err := o.config.GetSocks5(*user)
+	sa, su, sp, err := o.config.GetSocks5(*user)
 	if err != nil {
 		panic("user found, but GetUser not")
 	}
 
-	dcconn, err := dcConnectorFromSocks(s, o.config.GetAllowIPv6())
+	dcconn, err := dcConnectorFromSocks(sa, su, sp, o.config.GetAllowIPv6())
 	if err != nil {
 		return err
 	}

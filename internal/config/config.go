@@ -39,42 +39,14 @@ type parsedUserPrimitive struct {
 	Socks5_pass *string
 }
 
-// TODO: need some tests
-func (p *parsedUserPrimitive) getSocks(parent *Socks5Data) (s *Socks5Data, err error) {
-	if p.Socks5 == nil && p.Socks5_user == nil {
-		return parent, nil
-	} else if p.Socks5 == nil && p.Socks5_user != nil {
-		err = checkSocksValues(p.Socks5_user, p.Socks5_pass)
-		if err != nil {
-			return nil, err
-		}
-		s = &Socks5Data{
-			Url:  parent.Url,
-			User: p.Socks5_user,
-			Pass: p.Socks5_pass}
-		return s, nil
-	} else if *p.Socks5 == "" {
-		return nil, nil
-	} else {
-		err = checkSocksValues(p.Socks5_user, p.Socks5_pass)
-		if err != nil {
-			return nil, err
-		}
-		s = &Socks5Data{
-			Url:  *p.Socks5,
-			User: p.Socks5_user,
-			Pass: p.Socks5_pass,
-		}
-		return s, nil
-	}
-}
-
 type Config struct {
 	listen_Urls []string
 	allowIPv6   bool
 	secret      *string
 	host        *string
-	defsocks    *Socks5Data
+	socks5      *string
+	socks5_user *string
+	socks5_pass *string
 	users       *userDB
 }
 
@@ -115,16 +87,30 @@ func (c *Config) IterateUsers(f func(user, secret string) (stop bool)) {
 	}
 }
 
-func (c *Config) GetDefaultSocks() *Socks5Data {
-	return c.defsocks
+func (c *Config) GetDefaultSocks() (url, user, pass *string) {
+	return c.socks5, c.socks5_user, c.socks5_pass
 }
 
-func (c *Config) GetSocks5(user string) (*Socks5Data, error) {
-	u, err := c.GetUser(user)
+func (c *Config) GetSocks5(userName string) (url, user, pass *string, err error) {
+	u, err := c.GetUser(userName)
 	if err != nil {
-		return nil, err
+		return
 	}
-	return u.Socks5, nil
+	url = u.Socks5
+	if url == nil {
+		url = c.socks5
+	} else if *url == "" {
+		url = nil
+	}
+	user = u.Socks5_user
+	if user == nil {
+		user = c.socks5_user
+	}
+	pass = u.Socks5_pass
+	if pass == nil {
+		pass = c.socks5_pass
+	}
+	return
 }
 func (c *Config) GetHost() *string {
 	return c.host

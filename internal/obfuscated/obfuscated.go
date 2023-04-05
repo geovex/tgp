@@ -48,7 +48,8 @@ func (o *ObfuscatedHandler) handleFallBack(initialPacket []byte) (err error) {
 		return fmt.Errorf("no fall back host")
 	}
 	fmt.Printf("redirect conection to fake host\n")
-	dc, err := dcConnectorFromSocks(o.config.GetDefaultSocks(), o.config.GetAllowIPv6())
+	sa, su, sp := o.config.GetDefaultSocks()
+	dc, err := dcConnectorFromSocks(su, sa, sp, o.config.GetAllowIPv6())
 	if err != nil {
 		return
 	}

@@ -56,19 +56,6 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	} else {
 		allowIPv6 = *parsed.AllowIPv6
 	}
-	//check for common defsocks
-	var defsocks *Socks5Data
-	if parsed.Socks5 != nil {
-		err := checkSocksValues(parsed.Socks5_user, parsed.Socks5_pass)
-		if err != nil {
-			return nil, err
-		}
-		defsocks = &Socks5Data{
-			Url:  *parsed.Socks5,
-			User: parsed.Socks5_user,
-			Pass: parsed.Socks5_pass,
-		}
-	}
 	var users *userDB
 	if parsed.Users != nil && parsed.Secret == nil {
 		users = NewUsers()
@@ -82,9 +69,11 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 					return nil, err
 				}
 				users.Users[name] = &User{
-					Name:   name,
-					Secret: secret,
-					Socks5: defsocks,
+					Name:        name,
+					Secret:      secret,
+					Socks5:      parsed.Socks5,
+					Socks5_user: parsed.Socks5_user,
+					Socks5_pass: parsed.Socks5_pass,
 				}
 			} else if utype == "Hash" { // user fully defined
 				var pu parsedUserPrimitive
@@ -92,21 +81,19 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 				if err != nil {
 					return nil, err
 				}
-				usersocks, err := pu.getSocks(defsocks)
-				if err != nil {
-					return nil, err
-				}
 				users.Users[name] = &User{
-					Name:   name,
-					Secret: pu.Secret,
-					Socks5: usersocks,
+					Name:        name,
+					Secret:      pu.Secret,
+					Socks5:      pu.Socks5,
+					Socks5_user: pu.Socks5_user,
+					Socks5_pass: pu.Socks5_pass,
 				}
 			} else {
 				return nil, fmt.Errorf("unknown type for user %s: %s ", name, utype)
 			}
 		}
 	} else if parsed.Users == nil && parsed.Secret != nil {
-		users = newOneUser(*parsed.Secret, defsocks)
+		users = newOneUser(*parsed.Secret, parsed.Socks5, parsed.Socks5_user, parsed.Socks5_pass)
 	} else {
 		return nil, fmt.Errorf("specify either secret or users")
 	}
@@ -115,7 +102,9 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 		allowIPv6:   allowIPv6,
 		secret:      parsed.Secret,
 		host:        parsed.Host,
-		defsocks:    defsocks,
+		socks5:      parsed.Socks5,
+		socks5_user: parsed.Socks5_user,
+		socks5_pass: parsed.Socks5_pass,
 		users:       users,
 	}, nil
 }

@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 
-	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/maplist"
 	"github.com/geovex/tgp/internal/tgcrypt"
 	"golang.org/x/net/proxy"
@@ -178,11 +177,11 @@ func dialBoth(host4, host6 string, dialer proxy.Dialer) (c net.Conn, err4, err6 
 }
 
 // if socks5 info is specified, return socks5 DcSocksConnector else return direct DcDirectConnector
-func dcConnectorFromSocks(s *config.Socks5Data, allowIPv6 bool) (conn DCConnector, err error) {
-	if s == nil {
+func dcConnectorFromSocks(url, user, pass *string, allowIPv6 bool) (conn DCConnector, err error) {
+	if url == nil || *user == "" {
 		return NewDcDirectConnector(allowIPv6), nil
 	} else {
-		return NewDcSocksConnector(allowIPv6, s.Url, s.User, s.Pass), nil
+		return NewDcSocksConnector(allowIPv6, *url, user, pass), nil
 	}
 }
 
