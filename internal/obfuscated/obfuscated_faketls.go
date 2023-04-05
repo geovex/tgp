@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	mrand "math/rand"
-	"net"
 	"runtime"
 	"sync"
 	"time"
@@ -45,20 +44,13 @@ func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.InitialHeaderSi
 	if user == nil {
 		return o.handleFallBack(tlsHandshake[:])
 	}
-	u, err := o.config.GetUser(*user)
-	if err != nil {
-		panic("user found, but GetUser not")
-	}
-	dcconn, err := dcConnectorFromSocks(u.Socks5, u.Socks5_user, u.Socks5_pass, o.config.GetAllowIPv6())
-	if err != nil {
-		return err
-	}
-	err = transceiveFakeTls(o.client, clientCtx, dcconn)
+
+	err = o.transceiveFakeTls(clientCtx, *user)
 	fmt.Printf("Client disconnected %s (faketls) \n", *user)
 	return err
 }
 
-func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn DCConnector) error {
+func (o *ObfuscatedHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, user string) error {
 	// checking timestamp
 	// TODO: consider it optional
 	skew := time.Now().Unix() - int64(cryptClient.Timestamp)
@@ -115,11 +107,11 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	h.Write(toClientHelloPkt)
 	toClientDigest := h.Sum(nil)
 	copy(toClientHelloPkt[11:], toClientDigest)
-	_, err = client.Write(toClientHelloPkt)
+	_, err = o.client.Write(toClientHelloPkt)
 	if err != nil {
 		return err
 	}
-	fts := newFakeTlsStream(client, cryptClient)
+	fts := newFakeTlsStream(o.client, cryptClient)
 	var simpleHeader [tgcrypt.InitialHeaderSize]byte
 	_, err = io.ReadFull(fts, simpleHeader[:])
 	if err != nil {
@@ -131,17 +123,33 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	}
 	simpleStream := NewSimpleStream(fts, simpleCtx)
 	defer simpleStream.Close()
+	u, err := o.config.GetUser(user)
+	if err != nil {
+		panic("user found, but GetUser not")
+	}
+	dcConn, err := dcConnectorFromSocks(u.Socks5, u.Socks5_user, u.Socks5_pass, o.config.GetAllowIPv6())
+	if err != nil {
+		return err
+	}
 	dc, err := dcConn.ConnectDC(simpleCtx.Dc)
 	if err != nil {
 		return err
 	}
-	// cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
-	// if err != nil {
-	// 	return fmt.Errorf("can't create dc ctx: %w", err)
-	// }
-	dcStream, err := LoginDC(dc, simpleCtx.Protocol)
-	if err != nil {
-		return fmt.Errorf("can't create dc stream: %w", err)
+	var dcStream io.ReadWriteCloser
+	if u.Obfuscate != nil && *u.Obfuscate {
+		cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
+		if err != nil {
+			return err
+		}
+		dcStream, err = ObfuscateDC(dc, cryptDc)
+		if err != nil {
+			return err
+		}
+	} else {
+		dcStream, err = LoginDC(dc, simpleCtx.Protocol)
+		if err != nil {
+			return err
+		}
 	}
 	defer dcStream.Close()
 	_, _ = transceiveStreams(simpleStream, dcStream)

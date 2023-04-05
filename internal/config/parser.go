@@ -56,10 +56,17 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	} else {
 		allowIPv6 = *parsed.AllowIPv6
 	}
+	var obfuscate bool
+	if parsed.Obfuscate == nil {
+		obfuscate = false
+	} else {
+		obfuscate = *parsed.Obfuscate
+	}
 	var users *userDB
 	if parsed.Users != nil && parsed.Secret == nil {
 		users = NewUsers()
 		for name, data := range *parsed.Users {
+			var u User
 			// user defined by it's secret
 			utype := md.Type("users", name)
 			if utype == "String" {
@@ -68,9 +75,14 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 				if err != nil {
 					return nil, err
 				}
-				users.Users[name] = &User{
+				err = checkSocksValues(parsed.Socks5_user, parsed.Socks5_pass)
+				if err != nil {
+					return nil, err
+				}
+				u = User{
 					Name:        name,
 					Secret:      secret,
+					Obfuscate:   parsed.Obfuscate,
 					Socks5:      parsed.Socks5,
 					Socks5_user: parsed.Socks5_user,
 					Socks5_pass: parsed.Socks5_pass,
@@ -81,9 +93,14 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 				if err != nil {
 					return nil, err
 				}
-				users.Users[name] = &User{
+				err = checkSocksValues(pu.Socks5_user, pu.Socks5_pass)
+				if err != nil {
+					return nil, err
+				}
+				u = User{
 					Name:        name,
 					Secret:      pu.Secret,
+					Obfuscate:   pu.Obfuscate,
 					Socks5:      pu.Socks5,
 					Socks5_user: pu.Socks5_user,
 					Socks5_pass: pu.Socks5_pass,
@@ -91,6 +108,7 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 			} else {
 				return nil, fmt.Errorf("unknown type for user %s: %s ", name, utype)
 			}
+			users.Users[name] = &u
 		}
 	} else if parsed.Users == nil && parsed.Secret != nil {
 		users = newOneUser(*parsed.Secret, parsed.Socks5, parsed.Socks5_user, parsed.Socks5_pass)
@@ -100,6 +118,7 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	return &Config{
 		listen_Urls: listenUrls,
 		allowIPv6:   allowIPv6,
+		obfuscate:   obfuscate,
 		secret:      parsed.Secret,
 		host:        parsed.Host,
 		socks5:      parsed.Socks5,

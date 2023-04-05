@@ -15,6 +15,7 @@ ipv6 = true
 host = "google.com:443"
 socks5_user = "test"
 socks5_pass = "test"
+obfuscate = true
 [users]
 1 = "dd000102030405060708090a0b0c0d0e0f"
 [users.2] 
@@ -25,6 +26,7 @@ type parsedConfig struct {
 	Listen_Url  toml.Primitive
 	Secret      *string
 	Host        *string
+	Obfuscate   *bool
 	Socks5      *string
 	Socks5_user *string
 	Socks5_pass *string
@@ -34,6 +36,7 @@ type parsedConfig struct {
 
 type parsedUserPrimitive struct {
 	Secret      string
+	Obfuscate   *bool
 	Socks5      *string
 	Socks5_user *string
 	Socks5_pass *string
@@ -44,6 +47,7 @@ type Config struct {
 	allowIPv6   bool
 	secret      *string
 	host        *string
+	obfuscate   bool
 	socks5      *string
 	socks5_user *string
 	socks5_pass *string
@@ -66,6 +70,9 @@ func (c *Config) GetUser(user string) (u User, err error) {
 	}
 	// process property inheritance
 	u = *userData
+	if u.Obfuscate == nil {
+		u.Obfuscate = &c.obfuscate
+	}
 	if u.Socks5 == nil {
 		u.Socks5 = c.socks5
 	} else if *u.Socks5 == "" {

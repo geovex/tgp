@@ -49,13 +49,21 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 	if err != nil {
 		return err
 	}
-	// cryptDc, err := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
-	// if err != nil {
-	// 	return err
-	// }
-	dcStream, err := LoginDC(dcSock, cryptClient.Protocol)
-	if err != nil {
-		return err
+	var dcStream io.ReadWriteCloser
+	if u.Obfuscate != nil && *u.Obfuscate {
+		cryptDc, err := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
+		if err != nil {
+			return err
+		}
+		dcStream, err = ObfuscateDC(dcSock, cryptDc)
+		if err != nil {
+			return err
+		}
+	} else {
+		dcStream, err = LoginDC(dcSock, cryptClient.Protocol)
+		if err != nil {
+			return err
+		}
 	}
 	defer dcStream.Close()
 	clientStream := NewSimpleStream(o.client, cryptClient)
