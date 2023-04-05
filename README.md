@@ -22,6 +22,8 @@ Config file is a toml-formatted file. For example:
 listen_url = ["0.0.0.0:6666", "[::]:6666"]
 # listen_url = "0.0.0.0:6666" #you can specify one listen address
 ipv6 = true # try IPv6 while connecting to DC
+# optional obfuscation for outgoing connections
+obfuscate = true
 # optional fallback host for dpi connection testers
 host = "google.com:443"
 # You can specify global secret for user _ here
@@ -39,6 +41,7 @@ secret = "dd101112131415161718191a1b1c1d1e1f"
 socks5_user = "2" # specify auth for user
 socks5_pass = "2"
 [3]
+obfuscate = false
 secret = "dd303132333435363738393a3b3c3d3e3f"
 socks5 = "" # override user 3 to direct conneection
 [4]
