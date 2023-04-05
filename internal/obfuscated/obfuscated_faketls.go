@@ -155,6 +155,7 @@ func (o *ObfuscatedHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, u
 	_, _ = transceiveStreams(simpleStream, dcStream)
 	//err1, err2 := transceiveStreams(simpleStream, dcStream)
 	//fmt.Printf("faketls transceiver ended: %v %v \n", err1, err2)
+	fmt.Printf("Client disconnected %s (faketls)\n", user)
 	return nil
 }
 
