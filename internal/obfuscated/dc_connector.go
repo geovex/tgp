@@ -194,7 +194,26 @@ func setNoDelay(c net.Conn) {
 	}
 }
 
-func LoginDC(sock io.ReadWriteCloser, ctx *tgcrypt.DcCtx) (*encDecStream, error) {
+func LoginDC(sock io.ReadWriteCloser, protocol uint8) (io.ReadWriteCloser, error) {
+	switch protocol {
+	case tgcrypt.Abridged:
+		_, err := sock.Write([]byte{tgcrypt.Abridged})
+		if err != nil {
+			return nil, err
+		}
+		return sock, nil
+	case tgcrypt.Padded, tgcrypt.Intermediate:
+		_, err := sock.Write([]byte{protocol, protocol, protocol, protocol})
+		if err != nil {
+			return nil, err
+		}
+		return sock, nil
+	default:
+		return nil, fmt.Errorf("unsupported protocol: %d", protocol)
+	}
+}
+
+func ObfuscateDC(sock io.ReadWriteCloser, ctx *tgcrypt.DcCtx) (*encDecStream, error) {
 	_, err := sock.Write(ctx.Nonce[:])
 	if err != nil {
 		return nil, err

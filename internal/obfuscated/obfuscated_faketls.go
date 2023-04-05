@@ -135,11 +135,11 @@ func transceiveFakeTls(client net.Conn, cryptClient *tgcrypt.FakeTlsCtx, dcConn 
 	if err != nil {
 		return err
 	}
-	cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
-	if err != nil {
-		return fmt.Errorf("can't create dc ctx: %w", err)
-	}
-	dcStream, err := LoginDC(dc, cryptDc)
+	// cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
+	// if err != nil {
+	// 	return fmt.Errorf("can't create dc ctx: %w", err)
+	// }
+	dcStream, err := LoginDC(dc, simpleCtx.Protocol)
 	if err != nil {
 		return fmt.Errorf("can't create dc stream: %w", err)
 	}

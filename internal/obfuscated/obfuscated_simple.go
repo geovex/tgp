@@ -49,11 +49,11 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 	if err != nil {
 		return err
 	}
-	cryptDc, err := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
-	if err != nil {
-		return err
-	}
-	dcStream, err := LoginDC(dcSock, cryptDc)
+	// cryptDc, err := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
+	// if err != nil {
+	// 	return err
+	// }
+	dcStream, err := LoginDC(dcSock, cryptClient.Protocol)
 	if err != nil {
 		return err
 	}

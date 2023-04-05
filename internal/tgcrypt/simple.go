@@ -18,10 +18,10 @@ type SimpleClientCtx struct {
 }
 
 const (
-	abridged     = 0xef
-	intermediate = 0xee //0xeeeeeeee
-	padded       = 0xdd //0xdddddddd
-	full         = 0
+	Abridged     = 0xef
+	Intermediate = 0xee //0xeeeeeeee
+	Padded       = 0xdd //0xdddddddd
+	Full         = 0
 )
 
 func SimpleClientCtxFromHeader(header [InitialHeaderSize]byte, secret *Secret) (c *SimpleClientCtx, err error) {
@@ -58,7 +58,7 @@ func SimpleClientCtxFromHeader(header [InitialHeaderSize]byte, secret *Secret) (
 	// fmt.Printf("Decrypted tail %s\n", hex.EncodeToString(buf[56:]))
 	protocol := buf[56]
 	switch protocol {
-	case abridged, intermediate, padded:
+	case Abridged, Intermediate, Padded:
 		break
 	default:
 		return nil, fmt.Errorf("invalid protocol %d", protocol)
