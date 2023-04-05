@@ -61,25 +61,25 @@ func TestProxyInheritance(t *testing.T) {
 	if err != nil {
 		t.Errorf("proxy inheritance config not parsed: %v", err)
 	}
-	inherit, _, _, err := c.GetSocks5("inherit")
+	inherit, err := c.GetUser("inherit")
 	if err != nil {
 		t.Errorf("no inherit user in proxy inheritance config")
 	}
-	if *inherit != "127.0.0.1:9050" {
+	if *inherit.Socks5 != "127.0.0.1:9050" {
 		t.Errorf("inherit user socks not 127.0.0.1:9050")
 	}
-	direct, _, _, err := c.GetSocks5("direct")
+	direct, err := c.GetUser("direct")
 	if err != nil {
 		t.Errorf("no direct user in proxy inheritance config")
 	}
-	if direct != nil {
+	if direct.Socks5 != nil {
 		t.Errorf("direct user is not directly connected")
 	}
-	another_proxy, _, _, err := c.GetSocks5("another_proxy")
+	another_proxy, err := c.GetUser("another_proxy")
 	if err != nil {
 		t.Errorf("no another_proxy user in proxy inheritance config")
 	}
-	if *another_proxy != "192.168.1.1:9050" {
+	if *another_proxy.Socks5 != "192.168.1.1:9050" {
 		t.Errorf("another_proxy user socks not 192.168.1.1:9050")
 	}
 }

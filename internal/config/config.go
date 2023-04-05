@@ -58,13 +58,26 @@ func (c *Config) GetAllowIPv6() bool {
 	return c.allowIPv6
 }
 
-func (c *Config) GetUser(user string) (*User, error) {
+func (c *Config) GetUser(user string) (u User, err error) {
+	// TODO: may be add user cache
 	userData, ok := c.users.Users[user]
 	if !ok {
-		return nil, fmt.Errorf("user %s not found", user)
-	} else {
-		return userData, nil
+		return u, fmt.Errorf("user %s not found", user)
 	}
+	// process property inheritance
+	u = *userData
+	if u.Socks5 == nil {
+		u.Socks5 = c.socks5
+	} else if *u.Socks5 == "" {
+		u.Socks5 = nil
+	}
+	if u.Socks5_user == nil {
+		u.Socks5_user = c.socks5_user
+	}
+	if u.Socks5_pass == nil {
+		u.Socks5_pass = c.socks5_pass
+	}
+	return
 }
 
 func (c *Config) GetUserSecret(user string) (string, error) {
@@ -91,27 +104,6 @@ func (c *Config) GetDefaultSocks() (url, user, pass *string) {
 	return c.socks5, c.socks5_user, c.socks5_pass
 }
 
-func (c *Config) GetSocks5(userName string) (url, user, pass *string, err error) {
-	u, err := c.GetUser(userName)
-	if err != nil {
-		return
-	}
-	url = u.Socks5
-	if url == nil {
-		url = c.socks5
-	} else if *url == "" {
-		url = nil
-	}
-	user = u.Socks5_user
-	if user == nil {
-		user = c.socks5_user
-	}
-	pass = u.Socks5_pass
-	if pass == nil {
-		pass = c.socks5_pass
-	}
-	return
-}
 func (c *Config) GetHost() *string {
 	return c.host
 }
