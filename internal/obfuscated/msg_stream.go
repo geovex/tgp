@@ -168,6 +168,7 @@ func (s *msgStream) WriteSrvMsg(m *message) (err error) {
 		}
 		sendmsg = append(sendmsg, m.data...)
 		if m.quickack {
+			fmt.Printf("server write quickack\n")
 			sendmsg[0] |= 0x80
 			sendmsg = []byte{sendmsg[3], sendmsg[2], sendmsg[1], sendmsg[0]}
 		}
@@ -175,6 +176,7 @@ func (s *msgStream) WriteSrvMsg(m *message) (err error) {
 		sendmsg = binary.LittleEndian.AppendUint32(sendmsg, uint32(len(m.data)))
 		sendmsg = append(sendmsg, m.data...)
 		if m.quickack {
+			fmt.Printf("server write quickack\n")
 			sendmsg[3] |= 0x80
 		}
 	default:
@@ -185,12 +187,17 @@ func (s *msgStream) WriteSrvMsg(m *message) (err error) {
 	return
 }
 func (s *msgStream) WriteCliMsg(m *message) (err error) {
+	sendmsg := make([]byte, 0, len(m.data)+20)
 	if m.quickack {
 		fmt.Printf("clieent write quickack %d bytes\n", len(m.data))
-		_, err = s.sock.Write(m.data)
+		if s.sock.Protocol() == tgcrypt.Abridged {
+			sendmsg = []byte{m.data[3], m.data[2], m.data[1], m.data[0]}
+		} else {
+			sendmsg = m.data
+		}
+		_, err = s.sock.Write(sendmsg)
 		return
 	}
-	sendmsg := make([]byte, 0, len(m.data)+20)
 	switch s.sock.Protocol() {
 	case tgcrypt.Abridged:
 		l := uint32(len(m.data))
