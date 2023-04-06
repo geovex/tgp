@@ -21,16 +21,18 @@ var FakeTlsHeader = [...]byte{
 	0x03, // client version 3,3 means tls 1.2
 	0x03}
 
-const FakeTlsHandshakeLen = 1 + 2 + 2 + 512 // handshake version payload_length length
+const FakeTlsHandshakeLen = 1 + 2 + 2 + 512 // handshake version payload_length payload
+
+type FakeTlsHandshake = [FakeTlsHandshakeLen]byte
 
 type FakeTlsCtx struct {
-	Header    [FakeTlsHandshakeLen]byte
+	Header    FakeTlsHandshake
 	Digest    [32]byte
 	Timestamp uint32
 	Secret    *Secret
 }
 
-func FakeTlsCtxFromTlsHeader(header [FakeTlsHandshakeLen]byte, secret *Secret) (c *FakeTlsCtx, err error) {
+func FakeTlsCtxFromTlsHeader(header FakeTlsHandshake, secret *Secret) (c *FakeTlsCtx, err error) {
 	digest := header[11 : 11+32]
 	msg := make([]byte, FakeTlsHandshakeLen)
 	copy(msg, header[:])

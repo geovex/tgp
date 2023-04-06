@@ -5,9 +5,10 @@ import (
 	"crypto/cipher"
 )
 
+// Context for obfuscation proxy-DC connection
 type DcCtx struct {
-	Nonce  [InitialHeaderSize]byte
-	encdec EncDec
+	Nonce Nonce
+	obf   Obfuscator
 }
 
 func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
@@ -34,12 +35,12 @@ func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
 		return
 	}
 	fromDcStream := cipher.NewCTR(fromDcCipher, decIV)
-	var nonce [InitialHeaderSize]byte
+	var nonce [NonceSize]byte
 	toDcStream.XORKeyStream(nonce[:], header[:])
 	copy(nonce[:56], header[:56])
 	c = &DcCtx{
 		Nonce: nonce,
-		encdec: EncDec{
+		obf: &ObfuscatorCtx{
 			reader: fromDcStream,
 			writer: toDcStream,
 		},
@@ -48,9 +49,9 @@ func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
 }
 
 func (c *DcCtx) DecryptNext(buf []byte) {
-	c.encdec.DecryptNext(buf)
+	c.obf.DecryptNext(buf)
 }
 
 func (c *DcCtx) EncryptNext(buf []byte) {
-	c.encdec.EncryptNext(buf)
+	c.obf.EncryptNext(buf)
 }

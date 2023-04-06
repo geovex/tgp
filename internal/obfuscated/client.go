@@ -2,14 +2,13 @@ package obfuscated
 
 import (
 	"fmt"
-	"io"
 	"runtime"
 
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize]byte) (err error) {
-	var cryptClient *tgcrypt.SimpleClientCtx
+func (o ObfuscatedHandler) handleClient(initialPacket [tgcrypt.NonceSize]byte) (err error) {
+	var cryptClient *tgcrypt.ClientCtx
 	var user string
 	o.config.IterateUsers(func(u, s string) bool {
 		runtime.Gosched()
@@ -20,7 +19,7 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 		if err != nil {
 			return false
 		}
-		cryptClient, err = tgcrypt.SimpleClientCtxFromHeader(initialPacket, userSecret)
+		cryptClient, err = tgcrypt.ClientCtxFromNonce(initialPacket, userSecret)
 		if err != nil {
 			return false
 		}
@@ -49,32 +48,22 @@ func (o ObfuscatedHandler) handleSimple(initialPacket [tgcrypt.InitialHeaderSize
 	if err != nil {
 		return err
 	}
-	var dcStream io.ReadWriteCloser
+	var dcStream DataStream
 	if u.Obfuscate != nil && *u.Obfuscate {
 		cryptDc, err := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
 		if err != nil {
 			return err
 		}
-		dcStream, err = ObfuscateDC(dcSock, cryptDc)
-		if err != nil {
-			return err
-		}
+		dcStream = ObfuscateDC(dcSock, cryptDc)
 	} else {
-		dcStream, err = LoginDC(dcSock, cryptClient.Protocol)
-		if err != nil {
-			return err
-		}
+		dcStream = LoginDC(dcSock, cryptClient.Protocol)
 	}
 	defer dcStream.Close()
-	clientStream := NewSimpleStream(o.client, cryptClient)
+	clientStream := newObfuscatedStream(o.client, cryptClient, nil)
 	defer clientStream.Close()
-	_, _ = transceiveStreams(clientStream, dcStream)
+	_, _ = transceiveDataStreams(clientStream, dcStream)
 	//err1, err2 := transceiveStreams(clientStream, dcStream)
 	//fmt.Printf("Client disconnected %s: %v %v \n", *user, err1, err2)
 	fmt.Printf("Client disconnected %s\n", user)
 	return nil
-}
-
-func NewSimpleStream(client io.ReadWriteCloser, ctx *tgcrypt.SimpleClientCtx) *encDecStream {
-	return newEncDecStream(client, ctx)
 }

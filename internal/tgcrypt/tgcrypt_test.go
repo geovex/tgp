@@ -10,13 +10,13 @@ func TestGenInits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(init) != InitialHeaderSize {
+	if len(init) != NonceSize {
 		t.Fatal("wrong init length")
 	}
 }
 
 func TestDecryptInit(t *testing.T) {
-	var init [InitialHeaderSize]byte
+	var init [NonceSize]byte
 	for i := 0; i < len(init); i++ {
 		init[i] = byte(i)
 	}

@@ -7,7 +7,9 @@ import (
 	"runtime"
 )
 
-const InitialHeaderSize = 64
+const NonceSize = 64
+
+type Nonce [NonceSize]byte
 
 var WrongNonceStarters = [...][]byte{
 	{0xef},                   // abridged header
@@ -20,7 +22,7 @@ var WrongNonceStarters = [...][]byte{
 	{0xee, 0xee, 0xee, 0xee}, // intermediate header
 }
 
-func decryptInit(packet [InitialHeaderSize]byte) (decrypt [48]byte) {
+func decryptInit(packet Nonce) (decrypt [48]byte) {
 	k := 0
 	for i := 55; i >= 8; i-- {
 		decrypt[k] = packet[i]
@@ -29,7 +31,7 @@ func decryptInit(packet [InitialHeaderSize]byte) (decrypt [48]byte) {
 	return
 }
 
-func IsWrongNonce(nonce [InitialHeaderSize]byte) bool {
+func IsWrongNonce(nonce Nonce) bool {
 	for _, s := range WrongNonceStarters {
 		if bytes.Equal(nonce[:len(s)], s) {
 			return true
@@ -38,7 +40,7 @@ func IsWrongNonce(nonce [InitialHeaderSize]byte) bool {
 	return bytes.Equal(nonce[4:8], []byte{0, 0, 0, 0})
 }
 
-func genNonce() (packet [InitialHeaderSize]byte, err error) {
+func genNonce() (packet Nonce, err error) {
 	// init := (56 random bytes) + protocol + dc + (2 random bytes)
 	for {
 		_, err = rand.Read(packet[:])

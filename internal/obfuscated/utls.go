@@ -1,51 +1,80 @@
 package obfuscated
 
 import (
+	"fmt"
 	"io"
 	"sync"
 
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-type encDecStream struct {
-	r, w   sync.Mutex
-	stream io.ReadWriteCloser
-	ed     tgcrypt.EncDecer
+type DataStream interface {
+	io.ReadWriteCloser
+	Initiate() error
 }
 
-func newEncDecStream(stream io.ReadWriteCloser, enc tgcrypt.EncDecer) *encDecStream {
-	return &encDecStream{
+type obfuscatedStream struct {
+	r, w   sync.Mutex
+	stream io.ReadWriteCloser
+	Nonce  *tgcrypt.Nonce
+	obf    tgcrypt.Obfuscator
+}
+
+// create obfuscated stream if nonce is specified, initiate will send it once
+func newObfuscatedStream(stream io.ReadWriteCloser, enc tgcrypt.Obfuscator, nonce *tgcrypt.Nonce) *obfuscatedStream {
+	return &obfuscatedStream{
 		r:      sync.Mutex{},
 		w:      sync.Mutex{},
 		stream: stream,
-		ed:     enc,
+		Nonce:  nonce,
+		obf:    enc,
 	}
 }
 
-func (s *encDecStream) Read(p []byte) (n int, err error) {
+func (s *obfuscatedStream) Initiate() error {
+	s.w.Lock()
+	defer s.w.Unlock()
+	if s.Nonce != nil {
+		_, err := s.stream.Write(s.Nonce[:])
+		s.Nonce = nil
+		return err
+	} else {
+		return nil
+	}
+}
+
+func (s *obfuscatedStream) Read(p []byte) (n int, err error) {
 	s.r.Lock()
 	defer s.r.Unlock()
 	n, err = s.stream.Read(p)
-	s.ed.DecryptNext(p[:n])
+	s.obf.DecryptNext(p[:n])
 	return
 }
 
-func (s *encDecStream) Write(p []byte) (n int, err error) {
+func (s *obfuscatedStream) Write(p []byte) (n int, err error) {
 	s.w.Lock()
 	defer s.w.Unlock()
 	newbuf := make([]byte, len(p))
 	copy(newbuf, p)
 	// TODO: save decrypt context here
-	s.ed.EncryptNext(newbuf)
+	s.obf.EncryptNext(newbuf)
 	n, err = s.stream.Write(newbuf)
 	return
 }
 
-func (s *encDecStream) Close() error {
+func (s *obfuscatedStream) Close() error {
 	return s.stream.Close()
 }
 
-func transceiveStreams(client io.ReadWriteCloser, dc io.ReadWriteCloser) (err1, err2 error) {
+func transceiveDataStreams(client, dc DataStream) (errc, errd error) {
+	errd = dc.Initiate()
+	if errd != nil {
+		return
+	}
+	return transceiveStreams(client, dc)
+}
+
+func transceiveStreams(client, dc io.ReadWriteCloser) (err1, err2 error) {
 	readerJoinChannel := make(chan error, 1)
 	go func() {
 		defer client.Close()
@@ -85,4 +114,58 @@ func transceiveStreams(client io.ReadWriteCloser, dc io.ReadWriteCloser) (err1, 
 	err1 = <-readerJoinChannel
 	err2 = <-writerJoinChannel
 	return
+}
+
+type rawStream struct {
+	r, w     sync.Mutex
+	protocol uint8 // 0xff if already initiated
+	stream   io.ReadWriteCloser
+}
+
+func newRawStream(stream io.ReadWriteCloser, protocol uint8) *rawStream {
+	return &rawStream{
+		r:        sync.Mutex{},
+		w:        sync.Mutex{},
+		stream:   stream,
+		protocol: protocol,
+	}
+}
+
+func (s *rawStream) Initiate() error {
+	s.w.Lock()
+	defer s.w.Unlock()
+	var header []byte
+	switch s.protocol {
+	case tgcrypt.Abridged:
+		header = []byte{tgcrypt.Abridged}
+	case tgcrypt.Intermediate:
+		header = []byte{tgcrypt.Intermediate, tgcrypt.Intermediate, tgcrypt.Intermediate, tgcrypt.Intermediate}
+	case tgcrypt.Padded:
+		header = []byte{tgcrypt.Padded, tgcrypt.Padded, tgcrypt.Padded, tgcrypt.Padded}
+	case 0xff:
+		return nil
+	default:
+		return fmt.Errorf("unknown protocol: %d", s.protocol)
+	}
+	_, err := s.stream.Write(header)
+	s.protocol = 0xff
+	return err
+}
+
+func (s *rawStream) Read(p []byte) (n int, err error) {
+	s.r.Lock()
+	defer s.r.Unlock()
+	n, err = s.stream.Read(p)
+	return
+}
+
+func (s *rawStream) Write(p []byte) (n int, err error) {
+	s.w.Lock()
+	defer s.w.Unlock()
+	n, err = s.stream.Write(p)
+	return
+}
+
+func (s *rawStream) Close() error {
+	return s.stream.Close()
 }

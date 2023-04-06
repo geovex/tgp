@@ -2,19 +2,19 @@ package tgcrypt
 
 import "crypto/cipher"
 
-type EncDecer interface {
+type Obfuscator interface {
 	DecryptNext(buf []byte)
 	EncryptNext(buf []byte)
 }
 
-type EncDec struct {
+type ObfuscatorCtx struct {
 	writer, reader cipher.Stream
 }
 
-func (e *EncDec) DecryptNext(buf []byte) {
+func (e *ObfuscatorCtx) DecryptNext(buf []byte) {
 	e.reader.XORKeyStream(buf, buf)
 }
 
-func (e *EncDec) EncryptNext(buf []byte) {
+func (e *ObfuscatorCtx) EncryptNext(buf []byte) {
 	e.writer.XORKeyStream(buf, buf)
 }

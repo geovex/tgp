@@ -24,7 +24,7 @@ func NewObfuscatedHandler(cfg *config.Config, client net.Conn) *ObfuscatedHandle
 
 func (o *ObfuscatedHandler) HandleObfuscated() (err error) {
 	defer o.client.Close()
-	var initialPacket [tgcrypt.InitialHeaderSize]byte
+	var initialPacket [tgcrypt.NonceSize]byte
 	n, err := io.ReadFull(o.client, initialPacket[:])
 	if err != nil {
 		if o.config.GetHost() != nil {
@@ -37,7 +37,7 @@ func (o *ObfuscatedHandler) HandleObfuscated() (err error) {
 	if bytes.Equal(initialPacket[0:len(tgcrypt.FakeTlsHeader)], tgcrypt.FakeTlsHeader[:]) {
 		return o.handleFakeTls(initialPacket)
 	} else {
-		return o.handleSimple(initialPacket)
+		return o.handleClient(initialPacket)
 	}
 }
 

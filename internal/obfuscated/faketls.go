@@ -17,10 +17,10 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.InitialHeaderSize]byte) (err error) {
+func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (err error) {
 	var tlsHandshake [tgcrypt.FakeTlsHandshakeLen]byte
 	copy(tlsHandshake[:tgcrypt.FakeTlsHandshakeLen], initialPacket[:])
-	_, err = io.ReadFull(o.client, tlsHandshake[tgcrypt.InitialHeaderSize:])
+	_, err = io.ReadFull(o.client, tlsHandshake[tgcrypt.NonceSize:])
 	var clientCtx *tgcrypt.FakeTlsCtx
 	if err != nil {
 		return
@@ -112,16 +112,16 @@ func (o *ObfuscatedHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, u
 		return err
 	}
 	fts := newFakeTlsStream(o.client, cryptClient)
-	var simpleHeader [tgcrypt.InitialHeaderSize]byte
+	var simpleHeader [tgcrypt.NonceSize]byte
 	_, err = io.ReadFull(fts, simpleHeader[:])
 	if err != nil {
 		return fmt.Errorf("can't read inner simple header: %w", err)
 	}
-	simpleCtx, err := tgcrypt.SimpleClientCtxFromHeader(simpleHeader, cryptClient.Secret)
+	simpleCtx, err := tgcrypt.ClientCtxFromNonce(simpleHeader, cryptClient.Secret)
 	if err != nil {
 		return fmt.Errorf("can't create simple ctx from inner simple header: %w", err)
 	}
-	simpleStream := NewSimpleStream(fts, simpleCtx)
+	simpleStream := newObfuscatedStream(fts, simpleCtx, nil)
 	defer simpleStream.Close()
 	u, err := o.config.GetUser(user)
 	if err != nil {
@@ -135,24 +135,18 @@ func (o *ObfuscatedHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, u
 	if err != nil {
 		return err
 	}
-	var dcStream io.ReadWriteCloser
+	var dcStream DataStream
 	if u.Obfuscate != nil && *u.Obfuscate {
 		cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
 		if err != nil {
 			return err
 		}
-		dcStream, err = ObfuscateDC(dc, cryptDc)
-		if err != nil {
-			return err
-		}
+		dcStream = ObfuscateDC(dc, cryptDc)
 	} else {
-		dcStream, err = LoginDC(dc, simpleCtx.Protocol)
-		if err != nil {
-			return err
-		}
+		dcStream = LoginDC(dc, simpleCtx.Protocol)
 	}
 	defer dcStream.Close()
-	_, _ = transceiveStreams(simpleStream, dcStream)
+	_, _ = transceiveDataStreams(simpleStream, dcStream)
 	//err1, err2 := transceiveStreams(simpleStream, dcStream)
 	//fmt.Printf("faketls transceiver ended: %v %v \n", err1, err2)
 	fmt.Printf("Client disconnected %s (faketls)\n", user)

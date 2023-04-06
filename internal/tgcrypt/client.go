@@ -7,14 +7,14 @@ import (
 	"fmt"
 )
 
-// struct that handles encryption
-type SimpleClientCtx struct {
-	Header   []byte
+// Context for client-proxy obfuscation
+type ClientCtx struct {
+	Nonce    Nonce
 	Secret   *Secret
 	Protocol uint8
 	Dc       int16
 	Random   [2]byte
-	encdec   EncDec
+	encdec   Obfuscator
 }
 
 const (
@@ -24,7 +24,7 @@ const (
 	Full         = 0
 )
 
-func SimpleClientCtxFromHeader(header [InitialHeaderSize]byte, secret *Secret) (c *SimpleClientCtx, err error) {
+func ClientCtxFromNonce(header Nonce, secret *Secret) (c *ClientCtx, err error) {
 	encKey := header[8:40]
 	encIV := header[40:56]
 	decReversed := decryptInit(header)
@@ -70,13 +70,13 @@ func SimpleClientCtxFromHeader(header [InitialHeaderSize]byte, secret *Secret) (
 	var random [2]byte
 	copy(random[:], buf[62:64])
 	// fmt.Printf("protocol: %x. DC %x\n", protocol, dc)
-	c = &SimpleClientCtx{
-		Header:   header[:],
+	c = &ClientCtx{
+		Nonce:    header,
 		Secret:   secret,
 		Protocol: protocol,
 		Dc:       dc,
 		Random:   random,
-		encdec: EncDec{
+		encdec: &ObfuscatorCtx{
 			reader: fromClientStream,
 			writer: toClientStream,
 		},
@@ -84,10 +84,10 @@ func SimpleClientCtxFromHeader(header [InitialHeaderSize]byte, secret *Secret) (
 	return
 }
 
-func (c *SimpleClientCtx) DecryptNext(buf []byte) {
+func (c *ClientCtx) DecryptNext(buf []byte) {
 	c.encdec.DecryptNext(buf)
 }
 
-func (c *SimpleClientCtx) EncryptNext(buf []byte) {
+func (c *ClientCtx) EncryptNext(buf []byte) {
 	c.encdec.EncryptNext(buf)
 }
