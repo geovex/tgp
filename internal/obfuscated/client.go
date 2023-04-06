@@ -48,7 +48,7 @@ func (o ObfuscatedHandler) handleClient(initialPacket [tgcrypt.NonceSize]byte) (
 	if err != nil {
 		return err
 	}
-	var dcStream DataStream
+	var dcStream dataStream
 	if u.Obfuscate != nil && *u.Obfuscate {
 		cryptDc, err := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
 		if err != nil {

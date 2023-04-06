@@ -8,22 +8,22 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-type msg struct {
+type message struct {
 	data     []byte
 	quickack bool
 }
 
-type MsgStream struct {
-	sock DataStream
+type msgStream struct {
+	sock dataStream
 }
 
-func NewMsgStream(sock DataStream) *MsgStream {
-	return &MsgStream{
+func newMsgStream(sock dataStream) *msgStream {
+	return &msgStream{
 		sock: sock,
 	}
 }
 
-func (s *MsgStream) ReadSrvMsg() (m *msg, err error) {
+func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 	var msgLen uint32
 	switch s.sock.Protocol() {
 	case tgcrypt.Abridged:
@@ -34,7 +34,7 @@ func (s *MsgStream) ReadSrvMsg() (m *msg, err error) {
 			return
 		}
 		if l[0]&0x80 != 0 {
-			m = &msg{[]byte{l[0], 0x00, 0x00, 0x00}, true}
+			m = &message{[]byte{l[0], 0x00, 0x00, 0x00}, true}
 			fmt.Printf("server read quickack\n")
 			_, err = io.ReadFull(s.sock, m.data[1:])
 			m.data = []byte{m.data[3], m.data[2], m.data[1], m.data[0]}
@@ -65,7 +65,7 @@ func (s *MsgStream) ReadSrvMsg() (m *msg, err error) {
 		msgLen = binary.LittleEndian.Uint32(l[:])
 		if msgLen&0x80000000 != 0 {
 			fmt.Printf("server read quickack\n")
-			m = &msg{l[:], true}
+			m = &message{l[:], true}
 			return
 		}
 		// read message
@@ -76,12 +76,12 @@ func (s *MsgStream) ReadSrvMsg() (m *msg, err error) {
 	default:
 		return nil, fmt.Errorf("unsupported protocol: %x", s.sock.Protocol())
 	}
-	m = &msg{data: make([]byte, msgLen), quickack: false}
+	m = &message{data: make([]byte, msgLen), quickack: false}
 	err = s.readRest(m.data)
 	return
 }
 
-func (s *MsgStream) ReadCliMsg() (m *msg, err error) {
+func (s *msgStream) ReadCliMsg() (m *message, err error) {
 	quickack := false
 	var msgbuf []byte
 	var msgLen uint32
@@ -142,16 +142,16 @@ func (s *MsgStream) ReadCliMsg() (m *msg, err error) {
 	default:
 		return nil, fmt.Errorf("unsupported protocol: %x", s.sock.Protocol())
 	}
-	m = &msg{data: msgbuf, quickack: quickack}
+	m = &message{data: msgbuf, quickack: quickack}
 	return
 }
 
-func (s *MsgStream) readRest(buf []byte) error {
+func (s *msgStream) readRest(buf []byte) error {
 	_, err := io.ReadFull(s.sock, buf)
 	return err
 }
 
-func (s *MsgStream) WriteSrvMsg(m *msg) (err error) {
+func (s *msgStream) WriteSrvMsg(m *message) (err error) {
 	sendmsg := make([]byte, 0, len(m.data)+20)
 	switch s.sock.Protocol() {
 	case tgcrypt.Abridged:
@@ -184,7 +184,7 @@ func (s *MsgStream) WriteSrvMsg(m *msg) (err error) {
 	_, err = s.sock.Write(sendmsg)
 	return
 }
-func (s *MsgStream) WriteCliMsg(m *msg) (err error) {
+func (s *msgStream) WriteCliMsg(m *message) (err error) {
 	if m.quickack {
 		fmt.Printf("clieent write quickack %d bytes\n", len(m.data))
 		_, err = s.sock.Write(m.data)
@@ -216,11 +216,11 @@ func (s *MsgStream) WriteCliMsg(m *msg) (err error) {
 	return
 }
 
-func (s *MsgStream) CloseStream() error {
+func (s *msgStream) CloseStream() error {
 	return s.sock.Close()
 }
 
-func transceiveMsg(client *MsgStream, dc *MsgStream) {
+func transceiveMsg(client *msgStream, dc *msgStream) {
 	defer client.CloseStream()
 	defer dc.CloseStream()
 	readerJoinChannel := make(chan error, 1)
@@ -262,15 +262,15 @@ func transceiveMsg(client *MsgStream, dc *MsgStream) {
 }
 
 //lint:ignore U1000 will be used later
-func transceiveMsgStreams(client, dc DataStream) error {
+func transceiveMsgStreams(client, dc dataStream) error {
 	defer client.Close()
 	defer dc.Close()
 	err := dc.Initiate()
 	if err != nil {
 		return err
 	}
-	clientStream := NewMsgStream(client)
-	dcStream := NewMsgStream(dc)
+	clientStream := newMsgStream(client)
+	dcStream := newMsgStream(dc)
 	transceiveMsg(clientStream, dcStream)
 	return nil
 }

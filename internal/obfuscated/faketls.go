@@ -135,7 +135,7 @@ func (o *ObfuscatedHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, u
 	if err != nil {
 		return err
 	}
-	var dcStream DataStream
+	var dcStream dataStream
 	if u.Obfuscate != nil && *u.Obfuscate {
 		cryptDc, err := tgcrypt.DcCtxNew(simpleCtx.Dc, simpleCtx.Protocol)
 		if err != nil {

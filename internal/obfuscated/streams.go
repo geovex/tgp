@@ -8,7 +8,7 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-type DataStream interface {
+type dataStream interface {
 	io.ReadWriteCloser
 	Initiate() error
 	Protocol() uint8
@@ -70,7 +70,7 @@ func (s *obfuscatedStream) Close() error {
 	return s.stream.Close()
 }
 
-func transceiveDataStreams(client, dc DataStream) (errc, errd error) {
+func transceiveDataStreams(client, dc dataStream) (errc, errd error) {
 	errd = dc.Initiate()
 	if errd != nil {
 		return
