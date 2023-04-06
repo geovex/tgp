@@ -23,6 +23,8 @@ var FakeTlsHeader = [...]byte{
 
 const FakeTlsHandshakeLen = 1 + 2 + 2 + 512 // handshake version payload_length payload
 
+// FakeTlsHandshake is a set of bytes client supposed to send for initiate
+// faketls connection.
 type FakeTlsHandshake = [FakeTlsHandshakeLen]byte
 
 type FakeTlsCtx struct {
@@ -32,6 +34,8 @@ type FakeTlsCtx struct {
 	Secret    *Secret
 }
 
+// Checks handshake bytes against user secret (does not check timestamp)
+// Returb faketls context in case os success.
 func FakeTlsCtxFromTlsHeader(header FakeTlsHandshake, secret *Secret) (c *FakeTlsCtx, err error) {
 	digest := header[11 : 11+32]
 	msg := make([]byte, FakeTlsHandshakeLen)

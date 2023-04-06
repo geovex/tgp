@@ -6,10 +6,7 @@ import (
 
 func TestGenInits(t *testing.T) {
 	//lint:ignore SA4006 this is a test
-	init, err := genNonce()
-	if err != nil {
-		t.Fatal(err)
-	}
+	init := genNonce()
 	if len(init) != NonceSize {
 		t.Fatal("wrong init length")
 	}

@@ -13,10 +13,7 @@ type DcCtx struct {
 }
 
 func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
-	header, err := genNonce()
-	if err != nil {
-		return
-	}
+	header := genNonce()
 	header[56] = protocol
 	header[57] = protocol
 	header[58] = protocol
@@ -42,7 +39,7 @@ func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
 	c = &DcCtx{
 		Nonce:    nonce,
 		Protocol: protocol,
-		obf: &ObfuscatorCtx{
+		obf: &obfuscatorCtx{
 			reader: fromDcStream,
 			writer: toDcStream,
 		},

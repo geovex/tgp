@@ -8,6 +8,7 @@ import (
 
 const NonceSize = 64
 
+// nonce is a set of bytes, received when initiating encrypted connection
 type Nonce [NonceSize]byte
 
 const MaxPayloadSize = 1024 * 1024 // 131200 // supposed to be 1<<17-1 but i've 131176 in abridged and more in padded
@@ -32,6 +33,7 @@ func decryptInit(packet Nonce) (decrypt [48]byte) {
 	return
 }
 
+// Check if nonce is correct. Usefull for clients validation
 func IsWrongNonce(nonce Nonce) bool {
 	for _, s := range WrongNonceStarters {
 		if bytes.Equal(nonce[:len(s)], s) {
@@ -41,12 +43,12 @@ func IsWrongNonce(nonce Nonce) bool {
 	return bytes.Equal(nonce[4:8], []byte{0, 0, 0, 0})
 }
 
-func genNonce() (packet Nonce, err error) {
+func genNonce() (packet Nonce) {
 	// init := (56 random bytes) + protocol + dc + (2 random bytes)
 	for {
-		_, err = rand.Read(packet[:])
+		_, err := rand.Read(packet[:])
 		if err != nil {
-			return
+			panic(err)
 		}
 		runtime.Gosched()
 		if IsWrongNonce(packet) {

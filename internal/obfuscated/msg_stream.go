@@ -261,6 +261,7 @@ func transceiveMsg(client *MsgStream, dc *MsgStream) {
 	<-writerJoinChannel
 }
 
+//lint:ignore U1000 will be used later
 func transceiveMsgStreams(client, dc DataStream) error {
 	defer client.Close()
 	defer dc.Close()

@@ -14,7 +14,7 @@ type ClientCtx struct {
 	Protocol uint8
 	Dc       int16
 	Random   [2]byte
-	encdec   Obfuscator
+	obf      Obfuscator
 }
 
 const (
@@ -24,6 +24,7 @@ const (
 	Full         = 0
 )
 
+// Generate client encryption context
 func ClientCtxFromNonce(header Nonce, secret *Secret) (c *ClientCtx, err error) {
 	encKey := header[8:40]
 	encIV := header[40:56]
@@ -76,7 +77,7 @@ func ClientCtxFromNonce(header Nonce, secret *Secret) (c *ClientCtx, err error) 
 		Protocol: protocol,
 		Dc:       dc,
 		Random:   random,
-		encdec: &ObfuscatorCtx{
+		obf: &obfuscatorCtx{
 			reader: fromClientStream,
 			writer: toClientStream,
 		},
@@ -85,9 +86,9 @@ func ClientCtxFromNonce(header Nonce, secret *Secret) (c *ClientCtx, err error) 
 }
 
 func (c *ClientCtx) DecryptNext(buf []byte) {
-	c.encdec.DecryptNext(buf)
+	c.obf.DecryptNext(buf)
 }
 
 func (c *ClientCtx) EncryptNext(buf []byte) {
-	c.encdec.EncryptNext(buf)
+	c.obf.EncryptNext(buf)
 }
