@@ -11,36 +11,40 @@ import (
 type DataStream interface {
 	io.ReadWriteCloser
 	Initiate() error
+	Protocol() uint8
 }
 
 type obfuscatedStream struct {
-	r, w   sync.Mutex
-	stream io.ReadWriteCloser
-	Nonce  *tgcrypt.Nonce
-	obf    tgcrypt.Obfuscator
+	r, w      sync.Mutex
+	stream    io.ReadWriteCloser
+	nonce     tgcrypt.Nonce
+	protocol  uint8
+	initiated bool
+	obf       tgcrypt.Obfuscator
 }
 
 // create obfuscated stream if nonce is specified, initiate will send it once
-func newObfuscatedStream(stream io.ReadWriteCloser, enc tgcrypt.Obfuscator, nonce *tgcrypt.Nonce) *obfuscatedStream {
+func newObfuscatedStream(stream io.ReadWriteCloser, enc tgcrypt.Obfuscator, nonce tgcrypt.Nonce, protocol uint8) *obfuscatedStream {
 	return &obfuscatedStream{
-		r:      sync.Mutex{},
-		w:      sync.Mutex{},
-		stream: stream,
-		Nonce:  nonce,
-		obf:    enc,
+		r:         sync.Mutex{},
+		w:         sync.Mutex{},
+		stream:    stream,
+		nonce:     nonce,
+		protocol:  protocol,
+		initiated: false,
+		obf:       enc,
 	}
 }
 
 func (s *obfuscatedStream) Initiate() error {
 	s.w.Lock()
 	defer s.w.Unlock()
-	if s.Nonce != nil {
-		_, err := s.stream.Write(s.Nonce[:])
-		s.Nonce = nil
-		return err
-	} else {
-		return nil
-	}
+	_, err := s.stream.Write(s.nonce[:])
+	return err
+}
+
+func (s *obfuscatedStream) Protocol() uint8 {
+	return s.protocol
 }
 
 func (s *obfuscatedStream) Read(p []byte) (n int, err error) {
@@ -118,7 +122,7 @@ func transceiveStreams(client, dc io.ReadWriteCloser) (err1, err2 error) {
 
 type rawStream struct {
 	r, w     sync.Mutex
-	protocol uint8 // 0xff if already initiated
+	protocol uint8
 	stream   io.ReadWriteCloser
 }
 
@@ -148,8 +152,11 @@ func (s *rawStream) Initiate() error {
 		return fmt.Errorf("unknown protocol: %d", s.protocol)
 	}
 	_, err := s.stream.Write(header)
-	s.protocol = 0xff
 	return err
+}
+
+func (s *rawStream) Protocol() uint8 {
+	return s.protocol
 }
 
 func (s *rawStream) Read(p []byte) (n int, err error) {

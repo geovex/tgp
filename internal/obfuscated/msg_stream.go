@@ -14,20 +14,18 @@ type msg struct {
 }
 
 type MsgStream struct {
-	sock     io.ReadWriteCloser
-	protocol uint8
+	sock DataStream
 }
 
-func NewMsgStream(sock io.ReadWriteCloser, protocol uint8) *MsgStream {
+func NewMsgStream(sock DataStream) *MsgStream {
 	return &MsgStream{
-		sock:     sock,
-		protocol: protocol,
+		sock: sock,
 	}
 }
 
 func (s *MsgStream) ReadSrvMsg() (m *msg, err error) {
 	var msgLen uint32
-	switch s.protocol {
+	switch s.sock.Protocol() {
 	case tgcrypt.Abridged:
 		var l [4]byte
 		// read length
@@ -76,7 +74,7 @@ func (s *MsgStream) ReadSrvMsg() (m *msg, err error) {
 			return
 		}
 	default:
-		return nil, fmt.Errorf("unsupported protocol: %x", s.protocol)
+		return nil, fmt.Errorf("unsupported protocol: %x", s.sock.Protocol())
 	}
 	m = &msg{data: make([]byte, msgLen), quickack: false}
 	err = s.readRest(m.data)
@@ -87,7 +85,7 @@ func (s *MsgStream) ReadCliMsg() (m *msg, err error) {
 	quickack := false
 	var msgbuf []byte
 	var msgLen uint32
-	switch s.protocol {
+	switch s.sock.Protocol() {
 	case tgcrypt.Abridged:
 		var l [4]byte
 		// read length
@@ -142,7 +140,7 @@ func (s *MsgStream) ReadCliMsg() (m *msg, err error) {
 			return
 		}
 	default:
-		return nil, fmt.Errorf("unsupported protocol: %x", s.protocol)
+		return nil, fmt.Errorf("unsupported protocol: %x", s.sock.Protocol())
 	}
 	m = &msg{data: msgbuf, quickack: quickack}
 	return
@@ -155,7 +153,7 @@ func (s *MsgStream) readRest(buf []byte) error {
 
 func (s *MsgStream) WriteSrvMsg(m *msg) (err error) {
 	sendmsg := make([]byte, 0, len(m.data)+20)
-	switch s.protocol {
+	switch s.sock.Protocol() {
 	case tgcrypt.Abridged:
 		l := uint32(len(m.data))
 		if l%4 != 0 {
@@ -180,7 +178,8 @@ func (s *MsgStream) WriteSrvMsg(m *msg) (err error) {
 			sendmsg[3] |= 0x80
 		}
 	default:
-		return fmt.Errorf("unsupported protocol: %x", s.protocol)
+		fmt.Printf("Srv unsupported protocol: %x\n", s.sock.Protocol())
+		return fmt.Errorf("unsupported protocol: %x", s.sock.Protocol())
 	}
 	_, err = s.sock.Write(sendmsg)
 	return
@@ -192,7 +191,7 @@ func (s *MsgStream) WriteCliMsg(m *msg) (err error) {
 		return
 	}
 	sendmsg := make([]byte, 0, len(m.data)+20)
-	switch s.protocol {
+	switch s.sock.Protocol() {
 	case tgcrypt.Abridged:
 		l := uint32(len(m.data))
 		if l%4 != 0 {
@@ -210,7 +209,8 @@ func (s *MsgStream) WriteCliMsg(m *msg) (err error) {
 		sendmsg = binary.LittleEndian.AppendUint32(sendmsg, uint32(len(m.data)))
 		sendmsg = append(sendmsg, m.data...)
 	default:
-		return fmt.Errorf("unsupported protocol: %x", s.protocol)
+		fmt.Printf("Cli unsupported protocol: %x\n", s.sock.Protocol())
+		return fmt.Errorf("unsupported protocol: %x", s.sock.Protocol())
 	}
 	_, err = s.sock.Write(sendmsg)
 	return
@@ -218,4 +218,58 @@ func (s *MsgStream) WriteCliMsg(m *msg) (err error) {
 
 func (s *MsgStream) CloseStream() error {
 	return s.sock.Close()
+}
+
+func transceiveMsg(client *MsgStream, dc *MsgStream) {
+	defer client.CloseStream()
+	defer dc.CloseStream()
+	readerJoinChannel := make(chan error, 1)
+	go func() {
+		defer client.CloseStream()
+		defer dc.CloseStream()
+		for {
+			msg, err := client.ReadCliMsg()
+			if err != nil {
+				readerJoinChannel <- err
+				return
+			}
+			err = dc.WriteSrvMsg(msg)
+			if err != nil {
+				readerJoinChannel <- err
+				return
+			}
+		}
+	}()
+	writerJoinChannel := make(chan error, 1)
+	go func() {
+		defer client.CloseStream()
+		defer dc.CloseStream()
+		for {
+			msg, err := dc.ReadSrvMsg()
+			if err != nil {
+				writerJoinChannel <- err
+				return
+			}
+			err = client.WriteCliMsg(msg)
+			if err != nil {
+				writerJoinChannel <- err
+				return
+			}
+		}
+	}()
+	<-readerJoinChannel
+	<-writerJoinChannel
+}
+
+func transceiveMsgStreams(client, dc DataStream) error {
+	defer client.Close()
+	defer dc.Close()
+	err := dc.Initiate()
+	if err != nil {
+		return err
+	}
+	clientStream := NewMsgStream(client)
+	dcStream := NewMsgStream(dc)
+	transceiveMsg(clientStream, dcStream)
+	return nil
 }

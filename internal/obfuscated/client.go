@@ -59,11 +59,12 @@ func (o ObfuscatedHandler) handleClient(initialPacket [tgcrypt.NonceSize]byte) (
 		dcStream = LoginDC(dcSock, cryptClient.Protocol)
 	}
 	defer dcStream.Close()
-	clientStream := newObfuscatedStream(o.client, cryptClient, nil)
+	clientStream := newObfuscatedStream(o.client, cryptClient, cryptClient.Nonce, cryptClient.Protocol)
 	defer clientStream.Close()
 	_, _ = transceiveDataStreams(clientStream, dcStream)
 	//err1, err2 := transceiveStreams(clientStream, dcStream)
 	//fmt.Printf("Client disconnected %s: %v %v \n", *user, err1, err2)
+	// transceiveMsgStreams(clientStream, dcStream)
 	fmt.Printf("Client disconnected %s\n", user)
 	return nil
 }

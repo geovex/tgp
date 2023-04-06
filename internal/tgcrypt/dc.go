@@ -7,8 +7,9 @@ import (
 
 // Context for obfuscation proxy-DC connection
 type DcCtx struct {
-	Nonce Nonce
-	obf   Obfuscator
+	Nonce    Nonce
+	Protocol uint8
+	obf      Obfuscator
 }
 
 func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
@@ -39,7 +40,8 @@ func DcCtxNew(dc int16, protocol byte) (c *DcCtx, err error) {
 	toDcStream.XORKeyStream(nonce[:], header[:])
 	copy(nonce[:56], header[:56])
 	c = &DcCtx{
-		Nonce: nonce,
+		Nonce:    nonce,
+		Protocol: protocol,
 		obf: &ObfuscatorCtx{
 			reader: fromDcStream,
 			writer: toDcStream,

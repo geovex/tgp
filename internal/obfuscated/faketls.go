@@ -121,7 +121,7 @@ func (o *ObfuscatedHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, u
 	if err != nil {
 		return fmt.Errorf("can't create simple ctx from inner simple header: %w", err)
 	}
-	simpleStream := newObfuscatedStream(fts, simpleCtx, nil)
+	simpleStream := newObfuscatedStream(fts, simpleCtx, simpleCtx.Nonce, simpleCtx.Protocol)
 	defer simpleStream.Close()
 	u, err := o.config.GetUser(user)
 	if err != nil {
