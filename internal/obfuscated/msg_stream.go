@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
@@ -227,45 +228,45 @@ func (s *msgStream) CloseStream() error {
 	return s.sock.Close()
 }
 
-func transceiveMsg(client *msgStream, dc *msgStream) {
+func transceiveMsg(client *msgStream, dc *msgStream) (err1, err2 error) {
 	defer client.CloseStream()
 	defer dc.CloseStream()
-	readerJoinChannel := make(chan error, 1)
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
 		defer client.CloseStream()
 		defer dc.CloseStream()
+		defer wg.Done()
 		for {
-			msg, err := client.ReadCliMsg()
-			if err != nil {
-				readerJoinChannel <- err
+			var msg *message
+			msg, err1 = client.ReadCliMsg()
+			if err1 != nil {
 				return
 			}
-			err = dc.WriteSrvMsg(msg)
-			if err != nil {
-				readerJoinChannel <- err
+			err1 = dc.WriteSrvMsg(msg)
+			if err1 != nil {
 				return
 			}
 		}
 	}()
-	writerJoinChannel := make(chan error, 1)
 	go func() {
 		defer client.CloseStream()
 		defer dc.CloseStream()
+		defer wg.Done()
 		for {
-			msg, err := dc.ReadSrvMsg()
-			if err != nil {
-				writerJoinChannel <- err
+			var msg *message
+			msg, err2 = dc.ReadSrvMsg()
+			if err2 != nil {
 				return
 			}
-			err = client.WriteCliMsg(msg)
-			if err != nil {
-				writerJoinChannel <- err
+			err2 = client.WriteCliMsg(msg)
+			if err2 != nil {
 				return
 			}
 		}
 	}()
-	<-readerJoinChannel
-	<-writerJoinChannel
+	wg.Wait()
+	return
 }
 
 //lint:ignore U1000 will be used later

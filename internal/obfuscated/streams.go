@@ -79,44 +79,43 @@ func transceiveDataStreams(client, dc dataStream) (errc, errd error) {
 }
 
 func transceiveStreams(client, dc io.ReadWriteCloser) (err1, err2 error) {
-	readerJoinChannel := make(chan error, 1)
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
 		defer client.Close()
 		defer dc.Close()
+		defer wg.Done()
 		buf := make([]byte, 2048)
 		for {
-			size, err := client.Read(buf)
-			if err != nil {
-				readerJoinChannel <- err
+			var size int
+			size, err1 = client.Read(buf)
+			if err1 != nil {
 				return
 			}
-			_, err = dc.Write(buf[:size])
-			if err != nil {
-				readerJoinChannel <- err
+			_, err1 = dc.Write(buf[:size])
+			if err1 != nil {
 				return
 			}
 		}
 	}()
-	writerJoinChannel := make(chan error, 1)
 	go func() {
 		defer client.Close()
 		defer dc.Close()
+		defer wg.Done()
 		buf := make([]byte, 2048)
 		for {
-			size, err := dc.Read(buf)
-			if err != nil {
-				writerJoinChannel <- err
+			var size int
+			size, err2 = dc.Read(buf)
+			if err2 != nil {
 				return
 			}
-			_, err = client.Write(buf[:size])
-			if err != nil {
-				writerJoinChannel <- err
+			_, err2 = client.Write(buf[:size])
+			if err2 != nil {
 				return
 			}
 		}
 	}()
-	err1 = <-readerJoinChannel
-	err2 = <-writerJoinChannel
+	wg.Wait()
 	return
 }
 
