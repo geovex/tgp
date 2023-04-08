@@ -50,10 +50,7 @@ func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (e
 	}
 	var dcStream dataStream
 	if u.Obfuscate != nil && *u.Obfuscate {
-		cryptDc, err := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
-		if err != nil {
-			return err
-		}
+		cryptDc := tgcrypt.DcCtxNew(cryptClient.Dc, cryptClient.Protocol)
 		dcStream = ObfuscateDC(dcSock, cryptDc)
 	} else {
 		dcStream = LoginDC(dcSock, cryptClient.Protocol)

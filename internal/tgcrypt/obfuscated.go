@@ -1,8 +1,6 @@
 package tgcrypt
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/sha256"
 	"fmt"
 )
@@ -42,16 +40,8 @@ func ObfCtxFromNonce(header Nonce, secret *Secret) (c *ObfCtx, err error) {
 	decKey = hasher.Sum(nil)
 	hasher.Reset()
 	// encKey is used for receiving data bbecause abbreviations was taken from client specs
-	fromClientCipher, err := aes.NewCipher(encKey)
-	if err != nil {
-		return nil, err
-	}
-	fromClientStream := cipher.NewCTR(fromClientCipher, encIV)
-	toClientCipher, err := aes.NewCipher(decKey)
-	if err != nil {
-		return nil, err
-	}
-	toClientStream := cipher.NewCTR(toClientCipher, decIV)
+	fromClientStream := newAesStream(encKey, encIV)
+	toClientStream := newAesStream(decKey, decIV)
 	// decrypt encrypted part of innitial packet
 	// basicaly you need to appy decrypt to all incoming packet and take last 8 bytes
 	buf := make([]byte, 64)
