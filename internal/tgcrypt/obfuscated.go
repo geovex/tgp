@@ -8,7 +8,7 @@ import (
 )
 
 // Context for client-proxy obfuscation
-type ClientCtx struct {
+type ObfCtx struct {
 	Nonce    Nonce
 	Secret   *Secret
 	Protocol uint8
@@ -25,7 +25,7 @@ const (
 )
 
 // Generate client encryption context
-func ClientCtxFromNonce(header Nonce, secret *Secret) (c *ClientCtx, err error) {
+func ObfCtxFromNonce(header Nonce, secret *Secret) (c *ObfCtx, err error) {
 	encKey := header[8:40]
 	encIV := header[40:56]
 	decReversed := decryptInit(header)
@@ -71,7 +71,7 @@ func ClientCtxFromNonce(header Nonce, secret *Secret) (c *ClientCtx, err error) 
 	var random [2]byte
 	copy(random[:], buf[62:64])
 	// fmt.Printf("protocol: %x. DC %x\n", protocol, dc)
-	c = &ClientCtx{
+	c = &ObfCtx{
 		Nonce:    header,
 		Secret:   secret,
 		Protocol: protocol,
@@ -85,10 +85,10 @@ func ClientCtxFromNonce(header Nonce, secret *Secret) (c *ClientCtx, err error) 
 	return
 }
 
-func (c *ClientCtx) DecryptNext(buf []byte) {
+func (c *ObfCtx) DecryptNext(buf []byte) {
 	c.obf.DecryptNext(buf)
 }
 
-func (c *ClientCtx) EncryptNext(buf []byte) {
+func (c *ObfCtx) EncryptNext(buf []byte) {
 	c.obf.EncryptNext(buf)
 }

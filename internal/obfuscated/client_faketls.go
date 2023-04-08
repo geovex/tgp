@@ -17,7 +17,7 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (err error) {
+func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (err error) {
 	var tlsHandshake [tgcrypt.FakeTlsHandshakeLen]byte
 	copy(tlsHandshake[:tgcrypt.FakeTlsHandshakeLen], initialPacket[:])
 	_, err = io.ReadFull(o.client, tlsHandshake[tgcrypt.NonceSize:])
@@ -50,7 +50,7 @@ func (o *ObfuscatedHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte)
 	return err
 }
 
-func (o *ObfuscatedHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, user string) error {
+func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, user string) error {
 	// checking timestamp
 	// TODO: consider it optional
 	skew := time.Now().Unix() - int64(cryptClient.Timestamp)
@@ -117,7 +117,7 @@ func (o *ObfuscatedHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, u
 	if err != nil {
 		return fmt.Errorf("can't read inner simple header: %w", err)
 	}
-	simpleCtx, err := tgcrypt.ClientCtxFromNonce(simpleHeader, cryptClient.Secret)
+	simpleCtx, err := tgcrypt.ObfCtxFromNonce(simpleHeader, cryptClient.Secret)
 	if err != nil {
 		return fmt.Errorf("can't create simple ctx from inner simple header: %w", err)
 	}
