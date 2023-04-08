@@ -15,11 +15,17 @@ type message struct {
 }
 
 type msgStream struct {
+	seq  uint32
 	sock dataStream
 }
 
 func newMsgStream(sock dataStream) *msgStream {
+	return newMsgStreamSeq(sock, 0)
+}
+
+func newMsgStreamSeq(sock dataStream, seq uint32) *msgStream {
 	return &msgStream{
+		seq:  seq,
 		sock: sock,
 	}
 }
@@ -142,6 +148,9 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		}
 	default:
 		return nil, fmt.Errorf("unsupported protocol: %x", s.sock.Protocol())
+	}
+	if quickack {
+		fmt.Printf("client read quickack\n")
 	}
 	m = &message{data: msgbuf, quickack: quickack}
 	return
