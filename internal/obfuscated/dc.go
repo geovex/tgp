@@ -168,6 +168,8 @@ func dialBoth(host4, host6 string, dialer proxy.Dialer) (c net.Conn, err4, err6 
 		if err6 == nil {
 			return
 		}
+	} else {
+		err6 = fmt.Errorf("no ipv6 address specified")
 	}
 	c, err4 = dialer.Dial("tcp", host4)
 	if err4 != nil {
