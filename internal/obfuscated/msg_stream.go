@@ -24,23 +24,27 @@ func (s *msgStream) CloseStream() error {
 	return s.sock.Close()
 }
 
+// initiate msg stream by sending apropriate message
+func (s *msgStream) Initiate() error {
+	return s.sock.Initiate()
+}
+
 //lint:ignore U1000 will be used later
-func transceiveMsgStreams(client, dc dataStream) error {
+func transceiveMsgStreams(client, dc dataStream) (errc, errd error) {
 	defer client.Close()
 	defer dc.Close()
-	err := dc.Initiate()
-	if err != nil {
-		return err
-	}
 	clientStream := newMsgStream(client)
 	dcStream := newMsgStream(dc)
-	transceiveMsg(clientStream, dcStream)
-	return nil
+	return transceiveMsg(clientStream, dcStream)
 }
 
 func transceiveMsg(client *msgStream, dc *msgStream) (err1, err2 error) {
 	defer client.CloseStream()
 	defer dc.CloseStream()
+	err2 = dc.Initiate()
+	if err2 != nil {
+		return
+	}
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
