@@ -56,7 +56,7 @@ func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (e
 		dcStream = LoginDC(dcSock, cryptClient.Protocol)
 	}
 	defer dcStream.Close()
-	clientStream := newObfuscatedStream(o.client, cryptClient, cryptClient.Nonce, cryptClient.Protocol)
+	clientStream := newObfuscatedStream(o.client, cryptClient, &cryptClient.Nonce, cryptClient.Protocol)
 	defer clientStream.Close()
 	_, _ = transceiveDataStreams(clientStream, dcStream)
 	//err1, err2 := transceiveStreams(clientStream, dcStream)

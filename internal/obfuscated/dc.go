@@ -205,5 +205,5 @@ func ObfuscateDC(sock io.ReadWriteCloser, ctx *tgcrypt.DcCtx) *obfuscatedStream 
 	// if err != nil {
 	// 	return nil, err
 	// }
-	return newObfuscatedStream(sock, ctx, ctx.Nonce, ctx.Protocol)
+	return newObfuscatedStream(sock, ctx, &ctx.Nonce, ctx.Protocol)
 }

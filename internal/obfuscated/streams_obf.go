@@ -8,32 +8,34 @@ import (
 )
 
 type obfuscatedStream struct {
-	r, w      sync.Mutex
-	stream    io.ReadWriteCloser
-	nonce     tgcrypt.Nonce
-	protocol  uint8
-	initiated bool
-	obf       tgcrypt.Obfuscator
+	r, w     sync.Mutex
+	stream   io.ReadWriteCloser
+	nonce    *tgcrypt.Nonce
+	protocol uint8
+	obf      tgcrypt.Obfuscator
 }
 
 // create obfuscated stream if nonce is specified, initiate will send it once
-func newObfuscatedStream(stream io.ReadWriteCloser, enc tgcrypt.Obfuscator, nonce tgcrypt.Nonce, protocol uint8) *obfuscatedStream {
+func newObfuscatedStream(stream io.ReadWriteCloser, enc tgcrypt.Obfuscator, nonce *tgcrypt.Nonce, protocol uint8) *obfuscatedStream {
 	return &obfuscatedStream{
-		r:         sync.Mutex{},
-		w:         sync.Mutex{},
-		stream:    stream,
-		nonce:     nonce,
-		protocol:  protocol,
-		initiated: false,
-		obf:       enc,
+		r:        sync.Mutex{},
+		w:        sync.Mutex{},
+		stream:   stream,
+		nonce:    nonce,
+		protocol: protocol,
+		obf:      enc,
 	}
 }
 
 func (s *obfuscatedStream) Initiate() error {
 	s.w.Lock()
 	defer s.w.Unlock()
-	_, err := s.stream.Write(s.nonce[:])
-	return err
+	if s.nonce != nil {
+		_, err := s.stream.Write(s.nonce[:])
+		return err
+	} else {
+		return nil
+	}
 }
 
 func (s *obfuscatedStream) Protocol() uint8 {
