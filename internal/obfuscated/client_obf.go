@@ -9,7 +9,7 @@ import (
 
 func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (err error) {
 	var cryptClient *tgcrypt.ObfCtx
-	var user string
+	var user *string
 	o.config.IterateUsers(func(u, s string) bool {
 		runtime.Gosched()
 		if tgcrypt.IsWrongNonce(initialPacket) {
@@ -27,15 +27,15 @@ func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (e
 		if cryptClient.Dc > dcMaxIdx || cryptClient.Dc < -dcMaxIdx || cryptClient.Dc == 0 {
 			return false
 		}
-		user = u
+		user = &u
 		fmt.Printf("Client connected %s, protocol: %x\n", u, cryptClient.Protocol)
 		return true
 	})
-	if cryptClient == nil {
+	if user == nil {
 		return o.handleFallBack(initialPacket[:])
 	}
 	//connect to dc
-	u, err := o.config.GetUser(user)
+	u, err := o.config.GetUser(*user)
 	if err != nil {
 		panic("user found, but GetUser not")
 	}
@@ -62,6 +62,6 @@ func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (e
 	//err1, err2 := transceiveStreams(clientStream, dcStream)
 	//fmt.Printf("Client disconnected %s: %v %v \n", *user, err1, err2)
 	// transceiveMsgStreams(clientStream, dcStream)
-	fmt.Printf("Client disconnected %s\n", user)
+	fmt.Printf("Client disconnected %s\n", *user)
 	return nil
 }
