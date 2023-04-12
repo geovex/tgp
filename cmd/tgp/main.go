@@ -37,6 +37,7 @@ func (cl *connectionListener) handleLListener(url string) error {
 		}
 		oh := o.NewClient(cl.conf, conn)
 		go oh.HandleClient()
+		//oh.HandleClient()
 	}
 }
 

@@ -15,7 +15,9 @@ ipv6 = true
 host = "google.com:443"
 socks5_user = "test"
 socks5_pass = "test"
-obfuscate = true
+#obfuscate = true
+middleproxy = true
+allowipv6 = true
 [users]
 1 = "dd000102030405060708090a0b0c0d0e0f"
 [users.2] 
@@ -27,6 +29,7 @@ type parsedConfig struct {
 	Secret      *string
 	Host        *string
 	Obfuscate   *bool
+	Middleproxy *bool
 	Socks5      *string
 	Socks5_user *string
 	Socks5_pass *string
@@ -37,6 +40,7 @@ type parsedConfig struct {
 type parsedUserPrimitive struct {
 	Secret      string
 	Obfuscate   *bool
+	Middleproxy *bool
 	Socks5      *string
 	Socks5_user *string
 	Socks5_pass *string
@@ -48,6 +52,7 @@ type Config struct {
 	secret      *string
 	host        *string
 	obfuscate   bool
+	middleproxy bool
 	socks5      *string
 	socks5_user *string
 	socks5_pass *string
@@ -72,6 +77,9 @@ func (c *Config) GetUser(user string) (u User, err error) {
 	u = *userData
 	if u.Obfuscate == nil {
 		u.Obfuscate = &c.obfuscate
+	}
+	if u.Middleproxy == nil {
+		u.Middleproxy = &c.middleproxy
 	}
 	if u.Socks5 == nil {
 		u.Socks5 = c.socks5

@@ -4,6 +4,7 @@ type User struct {
 	Name        string
 	Secret      string
 	Obfuscate   *bool
+	Middleproxy *bool
 	Socks5      *string
 	Socks5_user *string
 	Socks5_pass *string

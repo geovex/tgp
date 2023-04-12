@@ -53,7 +53,7 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (er
 func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, user string) error {
 	// checking timestamp
 	// TODO: consider it optional
-	skew := time.Now().Unix() - int64(cryptClient.Timestamp)
+	skew := time.Now().UTC().Unix() - int64(cryptClient.Timestamp)
 	skewAbs := skew
 	if skewAbs < 0 {
 		skewAbs = -skewAbs

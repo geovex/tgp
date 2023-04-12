@@ -31,7 +31,25 @@ func DefaultConfig() *Config {
 	}
 	return result
 }
+
 func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) {
+	c, err := configFromParsedUnchecked(parsed, md)
+	if err != nil {
+		return nil, err
+	}
+	var usererr error
+	c.IterateUsers(func(user, name string) bool {
+		userData, _ := c.GetUser(name)
+		usererr = checkUser(&userData)
+		return err != nil
+	})
+	if usererr != nil {
+		return nil, usererr
+	}
+	return c, nil
+}
+
+func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config, error) {
 	//parse listen url
 	var listenUrls []string
 	if md.Type("listen_url") == "String" {
@@ -62,6 +80,12 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	} else {
 		obfuscate = *parsed.Obfuscate
 	}
+	var middleproxy bool
+	if parsed.Middleproxy == nil {
+		middleproxy = false
+	} else {
+		middleproxy = *parsed.Middleproxy
+	}
 	var users *userDB
 	if parsed.Users != nil && parsed.Secret == nil {
 		users = NewUsers()
@@ -75,14 +99,11 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 				if err != nil {
 					return nil, err
 				}
-				err = checkSocksValues(parsed.Socks5_user, parsed.Socks5_pass)
-				if err != nil {
-					return nil, err
-				}
 				u = User{
 					Name:        name,
 					Secret:      secret,
 					Obfuscate:   parsed.Obfuscate,
+					Middleproxy: parsed.Middleproxy,
 					Socks5:      parsed.Socks5,
 					Socks5_user: parsed.Socks5_user,
 					Socks5_pass: parsed.Socks5_pass,
@@ -93,13 +114,13 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 				if err != nil {
 					return nil, err
 				}
-				err = checkSocksValues(pu.Socks5_user, pu.Socks5_pass)
 				if err != nil {
 					return nil, err
 				}
 				u = User{
 					Name:        name,
 					Secret:      pu.Secret,
+					Middleproxy: pu.Middleproxy,
 					Obfuscate:   pu.Obfuscate,
 					Socks5:      pu.Socks5,
 					Socks5_user: pu.Socks5_user,
@@ -119,6 +140,7 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 		listen_Urls: listenUrls,
 		allowIPv6:   allowIPv6,
 		obfuscate:   obfuscate,
+		middleproxy: middleproxy,
 		secret:      parsed.Secret,
 		host:        parsed.Host,
 		socks5:      parsed.Socks5,
@@ -128,14 +150,17 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	}, nil
 }
 
-func checkSocksValues(user *string, pass *string) error {
-	if (user == nil && pass != nil) ||
-		(user != nil && pass == nil) {
-		return fmt.Errorf("both socks5_pass and socks5_user must be specified")
-	}
-	if (user != nil) && (*user == "") ||
-		(pass != nil) && (*pass == "") {
-		return fmt.Errorf("socks user or password can't have zero length (https://github.com/golang/go/issues/57285)")
+func checkUser(user *User) error {
+	// socks6 checks
+	if user.Socks5 != nil {
+		if (user.Socks5_user != nil) != (user.Socks5_pass != nil) {
+			return fmt.Errorf("both socks5 and socks5_pass must be specified")
+		} else if (*user.Socks5_user == "") && (*user.Socks5_pass == "") {
+			return fmt.Errorf("socks5 user or password can't have zero length (https://github.com/golang/go/issues/57285)")
+		}
+		if user.Middleproxy != nil && *user.Middleproxy {
+			return fmt.Errorf("middle proxy requires direct connection")
+		}
 	}
 	return nil
 }

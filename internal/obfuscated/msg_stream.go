@@ -1,13 +1,31 @@
 package obfuscated
 
 import (
+	"fmt"
 	"sync"
 )
 
 type message struct {
-	data     []byte
+	data     []byte // if nil, skip send
 	quickack bool
 	seq      uint32
+}
+
+type MsgStreanCloser interface {
+	CloseStream() error
+}
+
+type msgStreamSrv interface {
+	MsgStreanCloser
+	Initiate() error
+	ReadSrvMsg() (*message, error)
+	WriteSrvMsg(m *message) error
+}
+
+type msgStreamCli interface {
+	MsgStreanCloser
+	ReadCliMsg() (*message, error)
+	WriteCliMsg(m *message) error
 }
 
 type msgStream struct {
@@ -38,7 +56,7 @@ func transceiveMsgStreams(client, dc dataStream) (errc, errd error) {
 	return transceiveMsg(clientStream, dcStream)
 }
 
-func transceiveMsg(client *msgStream, dc *msgStream) (err1, err2 error) {
+func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 	defer client.CloseStream()
 	defer dc.CloseStream()
 	err2 = dc.Initiate()
@@ -57,9 +75,12 @@ func transceiveMsg(client *msgStream, dc *msgStream) (err1, err2 error) {
 			if err1 != nil {
 				return
 			}
-			err1 = dc.WriteSrvMsg(msg)
-			if err1 != nil {
-				return
+			if msg.data != nil {
+				fmt.Printf("client msg: %d bytes \n", len(msg.data))
+				err1 = dc.WriteSrvMsg(msg)
+				if err1 != nil {
+					return
+				}
 			}
 		}
 	}()
@@ -73,9 +94,12 @@ func transceiveMsg(client *msgStream, dc *msgStream) (err1, err2 error) {
 			if err2 != nil {
 				return
 			}
-			err2 = client.WriteCliMsg(msg)
-			if err2 != nil {
-				return
+			if msg.data != nil {
+				fmt.Printf("srv msg: %d bytes \n", len(msg.data))
+				err2 = client.WriteCliMsg(msg)
+				if err2 != nil {
+					return
+				}
 			}
 		}
 	}()

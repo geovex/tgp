@@ -34,7 +34,7 @@ func (s *rawStream) Initiate() error {
 		header = []byte{tgcrypt.Intermediate, tgcrypt.Intermediate, tgcrypt.Intermediate, tgcrypt.Intermediate}
 	case tgcrypt.Padded:
 		header = []byte{tgcrypt.Padded, tgcrypt.Padded, tgcrypt.Padded, tgcrypt.Padded}
-	case 0xff:
+	case tgcrypt.Full: // do nothing for Full protocol
 		return nil
 	default:
 		return fmt.Errorf("unknown protocol: %d", s.protocol)

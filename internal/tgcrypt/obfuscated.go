@@ -2,6 +2,7 @@ package tgcrypt
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 )
 
@@ -57,7 +58,7 @@ func ObfCtxFromNonce(header Nonce, secret *Secret) (c *ObfCtx, err error) {
 	if buf[57] != protocol || buf[58] != protocol || buf[59] != protocol {
 		return nil, fmt.Errorf("invalid protocol fields %d %d %d %d", buf[56], buf[57], buf[58], buf[59])
 	}
-	dc := int16(buf[60]) + (int16(buf[61]) << 8)
+	dc := int16(binary.LittleEndian.Uint16(buf[60:62]))
 	var random [2]byte
 	copy(random[:], buf[62:64])
 	// fmt.Printf("protocol: %x. DC %x\n", protocol, dc)

@@ -133,7 +133,7 @@ func (s *msgStream) WriteCliMsg(m *message) (err error) {
 		l = l / 4
 		if l >= 0x7f {
 			sendmsg = append(sendmsg, 0x7f)
-			sendmsg = append(sendmsg, binary.LittleEndian.AppendUint32(nil, l)[:3]...)
+			sendmsg = append(sendmsg, binary.LittleEndian.AppendUint32([]byte{}, l)[:3]...)
 		} else {
 			sendmsg = append(sendmsg, byte(l))
 		}
