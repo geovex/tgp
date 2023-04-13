@@ -6,11 +6,10 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 - multiple users (with different secrets)
 - socks5 proxy
 - Fake tls protocol
+- adtag support (requires direct egress connection)
 
 ## Not supported (yet) ##
-
-- middleproxy protocol
-- AD_TAG (requires middleproxy)
+- media CDN support
 
 ## Starting ##
 
@@ -49,6 +48,10 @@ secret = "dd404142434445464748494a4b4c4d4e4f"
 socks5 = "127.0.0.2:9050" # override to different proxy
 socks5_user = "4" 
 socks5_pass = "4"
+[5]
+secret = "dd505152535455565758595a5b5c5d5e5f"
+socks5 = ""
+adtag = "0000000000000000000000000000000001"
 ```
 
 Multiple users support achieved by checking handshake packet against each 
