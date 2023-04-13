@@ -80,12 +80,6 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 	} else {
 		obfuscate = *parsed.Obfuscate
 	}
-	var middleproxy bool
-	if parsed.Middleproxy == nil {
-		middleproxy = false
-	} else {
-		middleproxy = *parsed.Middleproxy
-	}
 	var users *userDB
 	if parsed.Users != nil && parsed.Secret == nil {
 		users = NewUsers()
@@ -103,7 +97,7 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 					Name:        name,
 					Secret:      secret,
 					Obfuscate:   parsed.Obfuscate,
-					Middleproxy: parsed.Middleproxy,
+					AdTag:       parsed.Adtag,
 					Socks5:      parsed.Socks5,
 					Socks5_user: parsed.Socks5_user,
 					Socks5_pass: parsed.Socks5_pass,
@@ -120,7 +114,7 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 				u = User{
 					Name:        name,
 					Secret:      pu.Secret,
-					Middleproxy: pu.Middleproxy,
+					AdTag:       pu.Adtag,
 					Obfuscate:   pu.Obfuscate,
 					Socks5:      pu.Socks5,
 					Socks5_user: pu.Socks5_user,
@@ -140,7 +134,7 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 		listen_Urls: listenUrls,
 		allowIPv6:   allowIPv6,
 		obfuscate:   obfuscate,
-		middleproxy: middleproxy,
+		AdTag:       parsed.Adtag,
 		secret:      parsed.Secret,
 		host:        parsed.Host,
 		socks5:      parsed.Socks5,
@@ -158,7 +152,7 @@ func checkUser(user *User) error {
 		} else if (*user.Socks5_user == "") && (*user.Socks5_pass == "") {
 			return fmt.Errorf("socks5 user or password can't have zero length (https://github.com/golang/go/issues/57285)")
 		}
-		if user.Middleproxy != nil && *user.Middleproxy {
+		if user.AdTag != nil && user.Socks5 != nil {
 			return fmt.Errorf("middle proxy requires direct connection")
 		}
 	}

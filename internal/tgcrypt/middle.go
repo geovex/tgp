@@ -39,6 +39,8 @@ const RpcNonceLen = 16
 
 type RpcNonce [RpcNonceLen]byte
 
+const AddTagLength = 16
+
 type MpCtx struct {
 	reader, writer cipher.BlockMode
 }

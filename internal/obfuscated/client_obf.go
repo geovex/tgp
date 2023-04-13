@@ -42,7 +42,7 @@ func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (e
 	}
 	clientStream := newObfuscatedStream(o.client, cliCtx, nil, cliCtx.Protocol)
 	defer clientStream.Close()
-	if u.Middleproxy == nil || !*u.Middleproxy {
+	if u.AdTag == nil {
 		dcconn, err := dcConnectorFromSocks(u.Socks5, u.Socks5_user, u.Socks5_pass, o.config.GetAllowIPv6())
 		if err != nil {
 			return err
@@ -65,11 +65,14 @@ func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (e
 		if err != nil {
 			return fmt.Errorf("MiddleProxyManager not available: %v", err)
 		}
-		addTag, err := hex.DecodeString("00000000000000000000000000000000")
+		adTag, err := hex.DecodeString(*u.AdTag)
 		if err != nil {
-			panic(err)
+			return err
 		}
-		mp, err := mpm.connect(cliCtx.Dc, o.client, cliCtx.Protocol, addTag)
+		if len(adTag) != tgcrypt.AddTagLength {
+			return fmt.Errorf("AdTag length %d is not %d", len(adTag), tgcrypt.AddTagLength)
+		}
+		mp, err := mpm.connect(cliCtx.Dc, o.client, cliCtx.Protocol, adTag)
 		if err != nil {
 			return err
 		}
@@ -77,7 +80,6 @@ func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (e
 		cliMsgStream := newMsgStream(clientStream)
 		transceiveMsg(cliMsgStream, mp)
 	}
-	//transceiveMsgStreams(clientStream, dcStream)
 	fmt.Printf("Client disconnected %s\n", *user)
 	return nil
 }
