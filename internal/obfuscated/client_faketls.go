@@ -27,21 +27,21 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (er
 		return
 	}
 	var user *string
-	o.config.IterateUsers(func(u, s string) bool {
+	for u := range o.config.IterateUsers() {
 		runtime.Gosched()
-		userSecret, err := tgcrypt.NewSecretHex(s)
+		userSecret, err := tgcrypt.NewSecretHex(u.Secret)
 		if err != nil {
-			return false
+			continue
 		}
 		clientCtx, err = tgcrypt.FakeTlsCtxFromTlsHeader(tlsHandshake, userSecret)
 		if err != nil {
-			return false
+			continue
 		} else {
-			user = &u
-			fmt.Printf("Client connected %s (faketls)\n", u)
-			return true
+			user = &u.Name
+			fmt.Printf("Client connected %s (faketls)\n", *user)
+			break
 		}
-	})
+	}
 	if user == nil {
 		return o.handleFallBack(tlsHandshake[:])
 	}

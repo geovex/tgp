@@ -39,14 +39,12 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	if err != nil {
 		return nil, err
 	}
-	var usererr error
-	c.IterateUsers(func(user, name string) bool {
-		userData, _ := c.GetUser(name)
-		usererr = checkUser(&userData)
-		return err != nil
-	})
-	if usererr != nil {
-		return nil, usererr
+	for u := range c.IterateUsers() {
+		userData, _ := c.GetUser(u.Name)
+		err = checkUser(&userData)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return c, nil
 }

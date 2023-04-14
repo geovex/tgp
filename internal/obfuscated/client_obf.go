@@ -11,27 +11,27 @@ import (
 func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (err error) {
 	var cliCtx *tgcrypt.ObfCtx
 	var user *string
-	o.config.IterateUsers(func(u, s string) bool {
+	for u := range o.config.IterateUsers() {
 		runtime.Gosched()
 		if tgcrypt.IsWrongNonce(initialPacket) {
-			return false
+			continue
 		}
-		userSecret, err := tgcrypt.NewSecretHex(s)
+		userSecret, err := tgcrypt.NewSecretHex(u.Secret)
 		if err != nil {
-			return false
+			continue
 		}
 		cliCtx, err = tgcrypt.ObfCtxFromNonce(initialPacket, userSecret)
 		if err != nil {
-			return false
+			continue
 		}
 		// basic afterchecks
 		if cliCtx.Dc > dcMaxIdx || cliCtx.Dc < -dcMaxIdx || cliCtx.Dc == 0 {
-			return false
+			continue
 		}
-		user = &u
-		fmt.Printf("Client connected %s, protocol: %x\n", u, cliCtx.Protocol)
-		return true
-	})
+		user = &u.Name
+		fmt.Printf("Client connected %s, protocol: %x\n", *user, cliCtx.Protocol)
+		break
+	}
 	if user == nil {
 		return o.handleFallBack(initialPacket[:])
 	}
