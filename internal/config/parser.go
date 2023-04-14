@@ -1,9 +1,11 @@
 package config
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/BurntSushi/toml"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 func ReadConfig(path string) (*Config, error) {
@@ -152,9 +154,20 @@ func checkUser(user *User) error {
 		} else if (*user.Socks5_user == "") && (*user.Socks5_pass == "") {
 			return fmt.Errorf("socks5 user or password can't have zero length (https://github.com/golang/go/issues/57285)")
 		}
-		if user.AdTag != nil && user.Socks5 != nil {
-			return fmt.Errorf("middle proxy requires direct connection")
+		if user.AdTag != nil {
+			if user.Socks5 != nil {
+				return fmt.Errorf("middle proxy requires direct connection")
+			} else {
+				adTag, err := hex.DecodeString(*user.AdTag)
+				if err != nil {
+					return fmt.Errorf("can't parse adtag: %w", err)
+				}
+				if len(adTag) != tgcrypt.AddTagLength {
+					return fmt.Errorf("adtag must be %d bytes", tgcrypt.AddTagLength)
+				}
+			}
 		}
+
 	}
 	return nil
 }
