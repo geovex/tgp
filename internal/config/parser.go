@@ -149,7 +149,7 @@ func checkUser(user *User) error {
 	if user.Socks5 != nil {
 		if (user.Socks5_user != nil) != (user.Socks5_pass != nil) {
 			return fmt.Errorf("both socks5 and socks5_pass must be specified")
-		} else if (*user.Socks5_user == "") && (*user.Socks5_pass == "") {
+		} else if user.Socks5_user != nil && (*user.Socks5_user == "") && (*user.Socks5_pass == "") {
 			return fmt.Errorf("socks5 user or password can't have zero length (https://github.com/golang/go/issues/57285)")
 		}
 		if user.AdTag != nil {

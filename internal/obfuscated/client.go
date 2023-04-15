@@ -2,6 +2,7 @@ package obfuscated
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -13,6 +14,11 @@ import (
 type ClientHandler struct {
 	client net.Conn
 	config *config.Config
+	// available after handshake
+	// TODO: decouple this
+	user      *config.User
+	cliCtx    *tgcrypt.ObfCtx
+	cliStream dataStream
 }
 
 func NewClient(cfg *config.Config, client net.Conn) *ClientHandler {
@@ -63,5 +69,44 @@ func (o *ClientHandler) handleFallBack(initialPacket []byte) (err error) {
 		return
 	}
 	transceiveStreams(o.client, host)
+	return nil
+}
+
+func (o *ClientHandler) processWithConfig() (err error) {
+	if o.user.AdTag == nil { // no intermidiate proxy required
+		dcConector, err := dcConnectorFromSocks(o.user.Socks5, o.user.Socks5_user, o.user.Socks5_pass, o.config.GetAllowIPv6())
+		if err != nil {
+			return err
+		}
+		sock, err := dcConector.ConnectDC(o.cliCtx.Dc)
+		if err != nil {
+			return fmt.Errorf("can't connect to DC %d: %w", o.cliCtx.Dc, err)
+		}
+		var dcStream dataStream
+		if o.user.Obfuscate != nil && *o.user.Obfuscate {
+			dcCtx := tgcrypt.DcCtxNew(o.cliCtx.Dc, o.cliCtx.Protocol)
+			dcStream = ObfuscateDC(sock, dcCtx)
+		} else {
+			dcStream = LoginDC(sock, o.cliCtx.Protocol)
+		}
+		defer dcStream.Close()
+		transceiveDataStreams(o.cliStream, dcStream)
+	} else {
+		mpm, err := getMiddleProxyManager(o.config)
+		if err != nil {
+			return err
+		}
+		adTag, err := hex.DecodeString(*o.user.AdTag)
+		if err != nil {
+			return err
+		}
+		mp, err := mpm.connect(o.cliCtx.Dc, o.client, o.cliCtx.Protocol, adTag)
+		if err != nil {
+			return err
+		}
+		defer mp.CloseStream()
+		clientMsgStream := newMsgStream(o.cliStream)
+		transceiveMsg(clientMsgStream, mp)
+	}
 	return nil
 }

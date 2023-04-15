@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 	mrand "math/rand"
@@ -26,7 +25,6 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (er
 	if err != nil {
 		return
 	}
-	var user *string
 	for u := range o.config.IterateUsers() {
 		runtime.Gosched()
 		userSecret, err := tgcrypt.NewSecretHex(u.Secret)
@@ -37,21 +35,21 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (er
 		if err != nil {
 			continue
 		} else {
-			user = &u.Name
-			fmt.Printf("Client connected %s (faketls)\n", *user)
+			o.user = u
+			fmt.Printf("Client connected %s (faketls)\n", u.Name)
 			break
 		}
 	}
-	if user == nil {
+	if o.user == nil {
 		return o.handleFallBack(tlsHandshake[:])
 	}
 
-	err = o.transceiveFakeTls(clientCtx, *user)
-	fmt.Printf("Client disconnected %s (faketls) \n", *user)
+	err = o.transceiveFakeTls(clientCtx)
+	fmt.Printf("Client disconnected %s (faketls) \n", o.user.Name)
 	return err
 }
 
-func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, user string) error {
+func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx) error {
 	// checking timestamp
 	// TODO: consider it optional
 	skew := time.Now().UTC().Unix() - int64(cryptClient.Timestamp)
@@ -118,73 +116,14 @@ func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx, user 
 	if err != nil {
 		return fmt.Errorf("can't read inner simple header: %w", err)
 	}
-	cliCtx, err := tgcrypt.ObfCtxFromNonce(simpleHeader, cryptClient.Secret)
+	o.cliCtx, err = tgcrypt.ObfCtxFromNonce(simpleHeader, cryptClient.Secret)
 	if err != nil {
 		return fmt.Errorf("can't create simple ctx from inner simple header: %w", err)
 	}
-	clientStream := newObfuscatedStream(fts, cliCtx, &cliCtx.Nonce, cliCtx.Protocol)
-	defer clientStream.Close()
-	u, err := o.config.GetUser(user)
-	if err != nil {
-		panic("user found, but GetUser not")
-	}
-	dcConn, err := dcConnectorFromSocks(u.Socks5, u.Socks5_user, u.Socks5_pass, o.config.GetAllowIPv6())
-	if err != nil {
-		return err
-	}
-	dc, err := dcConn.ConnectDC(cliCtx.Dc)
-	if err != nil {
-		return err
-	}
-	var dcStream dataStream
-	if u.Obfuscate != nil && *u.Obfuscate {
-		cryptDc := tgcrypt.DcCtxNew(cliCtx.Dc, cliCtx.Protocol)
-		dcStream = ObfuscateDC(dc, cryptDc)
-	} else {
-		dcStream = LoginDC(dc, cliCtx.Protocol)
-	}
-	defer dcStream.Close()
-	// TODO: make common funtion for this
-	if u.AdTag == nil {
-		dcconn, err := dcConnectorFromSocks(u.Socks5, u.Socks5_user, u.Socks5_pass, o.config.GetAllowIPv6())
-		if err != nil {
-			return err
-		}
-		dcSock, err := dcconn.ConnectDC(cliCtx.Dc)
-		if err != nil {
-			return err
-		}
-		var dcStream dataStream
-		if u.Obfuscate != nil && *u.Obfuscate {
-			cryptDc := tgcrypt.DcCtxNew(cliCtx.Dc, cliCtx.Protocol)
-			dcStream = ObfuscateDC(dcSock, cryptDc)
-		} else {
-			dcStream = LoginDC(dcSock, cliCtx.Protocol)
-		}
-		defer dcStream.Close()
-		transceiveDataStreams(clientStream, dcStream)
-	} else {
-		mpm, err := getMiddleProxyManager(o.config)
-		if err != nil {
-			return fmt.Errorf("MiddleProxyManager not available: %v", err)
-		}
-		adTag, err := hex.DecodeString(*u.AdTag)
-		if err != nil {
-			return err
-		}
-		if len(adTag) != tgcrypt.AddTagLength {
-			return fmt.Errorf("AdTag length %d is not %d", len(adTag), tgcrypt.AddTagLength)
-		}
-		mp, err := mpm.connect(cliCtx.Dc, o.client, cliCtx.Protocol, adTag)
-		if err != nil {
-			return err
-		}
-		defer mp.CloseStream()
-		cliMsgStream := newMsgStream(clientStream)
-		transceiveMsg(cliMsgStream, mp)
-	}
-	fmt.Printf("Client disconnected %s (faketls)\n", user)
-	return nil
+	o.cliStream = newObfuscatedStream(fts, o.cliCtx, &o.cliCtx.Nonce, o.cliCtx.Protocol)
+	err = o.processWithConfig()
+	fmt.Printf("Client disconnected %s (faketls)\n", o.user.Name)
+	return err
 }
 
 type fakeTlsStream struct {

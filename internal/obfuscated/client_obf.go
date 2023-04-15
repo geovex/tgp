@@ -1,15 +1,14 @@
 package obfuscated
 
 import (
-	"encoding/hex"
 	"fmt"
 	"runtime"
 
+	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (err error) {
-	var cliCtx *tgcrypt.ObfCtx
+func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (err error) {
 	var user *string
 	for u := range o.config.IterateUsers() {
 		runtime.Gosched()
@@ -20,66 +19,30 @@ func (o ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (e
 		if err != nil {
 			continue
 		}
-		cliCtx, err = tgcrypt.ObfCtxFromNonce(initialPacket, userSecret)
+		o.cliCtx, err = tgcrypt.ObfCtxFromNonce(initialPacket, userSecret)
 		if err != nil {
 			continue
 		}
 		// basic afterchecks
-		if cliCtx.Dc > dcMaxIdx || cliCtx.Dc < -dcMaxIdx || cliCtx.Dc == 0 {
+		if o.cliCtx.Dc > dcMaxIdx || o.cliCtx.Dc < -dcMaxIdx || o.cliCtx.Dc == 0 {
 			continue
 		}
 		user = &u.Name
-		fmt.Printf("Client connected %s, protocol: %x\n", *user, cliCtx.Protocol)
+		fmt.Printf("Client connected %s, protocol: %x\n", *user, o.cliCtx.Protocol)
 		break
 	}
 	if user == nil {
 		return o.handleFallBack(initialPacket[:])
 	}
 	//connect to dc
-	u, err := o.config.GetUser(*user)
+	var u config.User
+	u, err = o.config.GetUser(*user)
+	o.user = &u
 	if err != nil {
 		panic("user found, but GetUser not")
 	}
-	clientStream := newObfuscatedStream(o.client, cliCtx, nil, cliCtx.Protocol)
-	defer clientStream.Close()
-	if u.AdTag == nil {
-		dcconn, err := dcConnectorFromSocks(u.Socks5, u.Socks5_user, u.Socks5_pass, o.config.GetAllowIPv6())
-		if err != nil {
-			return err
-		}
-		dcSock, err := dcconn.ConnectDC(cliCtx.Dc)
-		if err != nil {
-			return err
-		}
-		var dcStream dataStream
-		if u.Obfuscate != nil && *u.Obfuscate {
-			cryptDc := tgcrypt.DcCtxNew(cliCtx.Dc, cliCtx.Protocol)
-			dcStream = ObfuscateDC(dcSock, cryptDc)
-		} else {
-			dcStream = LoginDC(dcSock, cliCtx.Protocol)
-		}
-		defer dcStream.Close()
-		transceiveDataStreams(clientStream, dcStream)
-	} else {
-		mpm, err := getMiddleProxyManager(o.config)
-		if err != nil {
-			return fmt.Errorf("MiddleProxyManager not available: %v", err)
-		}
-		adTag, err := hex.DecodeString(*u.AdTag)
-		if err != nil {
-			return err
-		}
-		if len(adTag) != tgcrypt.AddTagLength {
-			return fmt.Errorf("AdTag length %d is not %d", len(adTag), tgcrypt.AddTagLength)
-		}
-		mp, err := mpm.connect(cliCtx.Dc, o.client, cliCtx.Protocol, adTag)
-		if err != nil {
-			return err
-		}
-		defer mp.CloseStream()
-		cliMsgStream := newMsgStream(clientStream)
-		transceiveMsg(cliMsgStream, mp)
-	}
-	fmt.Printf("Client disconnected %s\n", *user)
-	return nil
+	o.cliStream = newObfuscatedStream(o.client, o.cliCtx, nil, o.cliCtx.Protocol)
+	err = o.processWithConfig()
+	fmt.Printf("Client disconnected %s\n", o.user.Name)
+	return
 }
