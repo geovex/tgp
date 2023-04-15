@@ -214,6 +214,7 @@ func (m *MiddleProxyManager) connect(dc int16, client net.Conn, cliProtocol uint
 	if !ok {
 		panic("failed to cast tcp connection")
 	}
+	outsock.SetNoDelay(true)
 	rs := newRawStream(mp, tgcrypt.Full)
 	mps := NewMiddleProxyStream(rs, outsock, mp, addTag, cliProtocol)
 	if err != nil {
