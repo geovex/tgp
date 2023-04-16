@@ -20,11 +20,13 @@ func transceiveDataStreams(client, dc dataStream) (errc, errd error) {
 }
 
 func transceiveStreams(client, dc io.ReadWriteCloser) (err1, err2 error) {
+	defer client.Close()
+	defer dc.Close()
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		defer client.Close()
-		defer dc.Close()
+		// defer client.Close()
+		// defer dc.Close()
 		defer wg.Done()
 		buf := make([]byte, 2048)
 		for {
@@ -41,8 +43,8 @@ func transceiveStreams(client, dc io.ReadWriteCloser) (err1, err2 error) {
 	}()
 	go func() {
 		defer client.Close()
-		defer dc.Close()
-		defer wg.Done()
+		// defer dc.Close()
+		// defer wg.Done()
 		buf := make([]byte, 2048)
 		for {
 			var size int
