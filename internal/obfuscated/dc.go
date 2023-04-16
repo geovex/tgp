@@ -180,7 +180,7 @@ func dialBoth(host4, host6 string, dialer proxy.Dialer) (c net.Conn, err4, err6 
 
 // if socks5 info is specified, return socks5 DcSocksConnector else return direct DcDirectConnector
 func dcConnectorFromSocks(url, user, pass *string, allowIPv6 bool) (conn DCConnector, err error) {
-	if url == nil || *user == "" {
+	if url == nil || *url == "" {
 		return NewDcDirectConnector(allowIPv6), nil
 	} else {
 		return NewDcSocksConnector(allowIPv6, *url, user, pass), nil
