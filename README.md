@@ -7,7 +7,8 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 - socks5 proxy
 - Fake tls protocol
 ## Experimental features
-- adtag support (direct egress connection is required, no nat or proxy)
+- adtag support (direct egress connection is required,
+                 no nat or proxy, ip can not be hidden)
 
 ## Not supported (yet) ##
 - media CDN support

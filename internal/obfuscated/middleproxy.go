@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"sync"
 	"time"
 
@@ -177,6 +178,23 @@ func (m *MiddleProxyManager) GetProxy(dc int16) (url4, url6 string, err error) {
 	return url4, url6, nil
 }
 
+type MiddleProxyStream struct {
+	initiated bool
+	protoCli  uint8
+	seq       uint32
+	ctx       *tgcrypt.MiddleCtx
+	// TODO: may be divide structure here
+	// rpcType        []byte
+	// rpcKeySelector []byte
+	// rpcSchema      []byte
+	//rpcTimeStamp //not really needed after login
+	cliAddr     netip.AddrPort
+	mpNonce     tgcrypt.RpcNonce
+	mSock       dataStream
+	mDataStream *msgBlockStream
+	connId      [8]byte
+}
+
 //lint:ignore U1000 reserved for future use
 func (m *MiddleProxyManager) connectRetry(dc int16, client net.Conn, cliProtocol uint8, addTag []byte) (*MiddleProxyStream, error) {
 	for {
@@ -216,7 +234,7 @@ func (m *MiddleProxyManager) connect(dc int16, client net.Conn, cliProtocol uint
 	}
 	outsock.SetNoDelay(true)
 	rs := newRawStream(mp, tgcrypt.Full)
-	mps := NewMiddleProxyStream(rs, outsock, mp, addTag, cliProtocol)
+	mps := NewMiddleProxyStream(rs, client, outsock, mp, addTag, cliProtocol)
 	if err != nil {
 		return nil, err
 	}
@@ -243,23 +261,7 @@ func connectBoth(url4, url6 string) (c net.Conn, err error) {
 	return nil, fmt.Errorf("can't connect to middle proxy %w %w", err4, err6)
 }
 
-type MiddleProxyStream struct {
-	initiated bool
-	protoCli  uint8
-	seq       uint32
-	ctx       *tgcrypt.MiddleCtx
-	// TODO: may be divide structure here
-	rpcType        []byte
-	rpcKeySelector []byte
-	rpcSchema      []byte
-	//rpcTimeStamp //not really needed after login
-	mpNonce     tgcrypt.RpcNonce
-	mSock       dataStream
-	mDataStream *msgBlockStream
-	connId      [8]byte
-}
-
-func NewMiddleProxyStream(mpStream dataStream, out, mp net.Conn, addTag []byte, protocolCli uint8) *MiddleProxyStream {
+func NewMiddleProxyStream(mpStream dataStream, client, out, mp net.Conn, addTag []byte, protocolCli uint8) *MiddleProxyStream {
 	outa := out.LocalAddr() // client address
 	oatcp, ok := outa.(*net.TCPAddr)
 	if !ok {
@@ -273,9 +275,15 @@ func NewMiddleProxyStream(mpStream dataStream, out, mp net.Conn, addTag []byte, 
 	ctx := tgcrypt.NewMiddleCtx(oatcp.AddrPort(), mptcp.AddrPort(), addTag)
 	seq := uint32(0)
 	seq -= 2
+	clia := client.LocalAddr()
+	clitcp, ok := clia.(*net.TCPAddr)
+	if !ok {
+		panic("client is not a socket")
+	}
 	return &MiddleProxyStream{
 		initiated: false,
 		protoCli:  protocolCli,
+		cliAddr:   clitcp.AddrPort(),
 		seq:       seq,
 		ctx:       ctx,
 		mSock:     mpStream,
@@ -323,15 +331,15 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 	if len(msg.data) != 32 {
 		return fmt.Errorf("invalid initial reply length: %d", len(msg.data))
 	}
-	m.rpcType = msg.data[:4]
-	m.rpcKeySelector = msg.data[4:8]
-	m.rpcSchema = msg.data[8:12]
+	rpcType := msg.data[:4]
+	rpcKeySelector := msg.data[4:8]
+	rpcSchema := msg.data[8:12]
 	//rpcTimeStamp := reply.data[12:16]
 	copy(m.mpNonce[:], msg.data[16:32])
 	// TODO: check timestamp
-	if !bytes.Equal(m.rpcType, tgcrypt.RpcNonceTag[:]) ||
-		!bytes.Equal(m.rpcKeySelector, keySelector) ||
-		!bytes.Equal(m.rpcSchema, tgcrypt.RpcCryptoAesTag[:]) {
+	if !bytes.Equal(rpcType, tgcrypt.RpcNonceTag[:]) ||
+		!bytes.Equal(rpcKeySelector, keySelector) ||
+		!bytes.Equal(rpcSchema, tgcrypt.RpcCryptoAesTag[:]) {
 		return fmt.Errorf("invalid initial reply")
 	}
 	m.ctx.SetObf(m.mpNonce[:], timestampCli, secret)
@@ -426,19 +434,22 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 	fullmsg = append(fullmsg, tgcrypt.RpcProxyReqTag[:]...)
 	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, flags)
 	fullmsg = append(fullmsg, m.connId[:]...)
-	ip6 := m.ctx.MP.Addr().As16()
-	if m.ctx.MP.Addr().Is4() {
+	// TODO: optional ip obfuscation
+	ip6 := m.cliAddr.Addr().As16()
+	if m.cliAddr.Addr().Is4() {
 		ip6[10] = 0xff
 		ip6[11] = 0xff
 	}
+	// ip6 := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 168, 0, 1}
 	fullmsg = append(fullmsg, ip6[:]...)
 	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.ctx.MP.Port()))
-	ip6 = m.ctx.Out.Addr().As16()
+	ip6Cli := m.ctx.Out.Addr().As16()
 	if m.ctx.Out.Addr().Is4() {
-		ip6[10] = 0xff
-		ip6[11] = 0xff
+		ip6Cli[10] = 0xff
+		ip6Cli[11] = 0xff
 	}
-	fullmsg = append(fullmsg, ip6[:]...)
+	//ip6Cli := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 168, 0, 1}
+	fullmsg = append(fullmsg, ip6Cli[:]...)
 	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.ctx.Out.Port()))
 	fullmsg = append(fullmsg, tgcrypt.ExtraSize[:]...)
 	fullmsg = append(fullmsg, tgcrypt.ProxyTag[:]...)
