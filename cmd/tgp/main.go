@@ -19,7 +19,7 @@ func newConnectionListener(conf *config.Config) *connectionListener {
 	}
 }
 
-func (cl *connectionListener) handleLListener(url string) error {
+func (cl *connectionListener) handleListener(url string) error {
 	fmt.Printf("listen: %s\n", url)
 	l, err := net.Listen("tcp", url)
 	if err != nil {
@@ -46,7 +46,7 @@ func (cl *connectionListener) listenForConnections() error {
 	defer close(waiter)
 	for _, url := range cl.conf.GetListenUrl() {
 		waiter := make(chan error, 1)
-		go func(u string) { waiter <- cl.handleLListener(u) }(url)
+		go func(u string) { waiter <- cl.handleListener(u) }(url)
 	}
 	err := <-waiter
 	return err
@@ -68,8 +68,4 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func DefaultConfig() {
-	panic("unimplemented")
 }
