@@ -1,7 +1,6 @@
 package obfuscated
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -76,7 +75,7 @@ func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 				return
 			}
 			if msg.data != nil {
-				fmt.Printf("client msg: %d bytes \n", len(msg.data))
+				//fmt.Printf("client msg: %d bytes \n", len(msg.data))
 				err1 = dc.WriteSrvMsg(msg)
 				if err1 != nil {
 					return
@@ -95,7 +94,7 @@ func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 				return
 			}
 			if msg.data != nil {
-				fmt.Printf("srv msg: %d bytes \n", len(msg.data))
+				//fmt.Printf("srv msg: %d bytes \n", len(msg.data))
 				err2 = client.WriteCliMsg(msg)
 				if err2 != nil {
 					return
