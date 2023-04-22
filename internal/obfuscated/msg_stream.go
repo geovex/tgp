@@ -65,8 +65,8 @@ func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		// defer client.CloseStream()
-		// defer dc.CloseStream()
+		defer client.CloseStream()
+		defer dc.CloseStream()
 		defer wg.Done()
 		for {
 			var msg *message
@@ -84,8 +84,8 @@ func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 		}
 	}()
 	go func() {
-		// defer client.CloseStream()
-		// defer dc.CloseStream()
+		defer client.CloseStream()
+		defer dc.CloseStream()
 		defer wg.Done()
 		for {
 			var msg *message
