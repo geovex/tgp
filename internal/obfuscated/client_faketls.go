@@ -43,7 +43,7 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (er
 	if o.user == nil {
 		return o.handleFallBack(tlsHandshake[:])
 	}
-
+	o.statsHandle.SetAuthorized(o.user.Name)
 	err = o.transceiveFakeTls(clientCtx)
 	fmt.Printf("Client disconnected %s (faketls) \n", o.user.Name)
 	return err

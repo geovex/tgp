@@ -137,6 +137,7 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 		AdTag:       parsed.Adtag,
 		secret:      parsed.Secret,
 		host:        parsed.Host,
+		stats_sock:  parsed.Stats_Sock,
 		socks5:      parsed.Socks5,
 		socks5_user: parsed.Socks5_user,
 		socks5_pass: parsed.Socks5_pass,

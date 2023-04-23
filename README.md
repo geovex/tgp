@@ -23,6 +23,9 @@ Config file is a toml-formatted file. For example:
 listen_url = ["0.0.0.0:6666", "[::]:6666"]
 # listen_url = "0.0.0.0:6666" #you can specify one listen address
 ipv6 = true # try IPv6 while connecting to DC
+# path for unix domain socket for getting stats
+# you can get results with socat
+stats_sock = "tgp.stats"
 # optional obfuscation for outgoing connections
 obfuscate = true
 # fallback host for dpi connection probes (optional

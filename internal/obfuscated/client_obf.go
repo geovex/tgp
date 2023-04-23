@@ -34,6 +34,7 @@ func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (
 	if user == nil {
 		return o.handleFallBack(initialPacket[:])
 	}
+	o.statsHandle.SetAuthorized(*user)
 	//connect to dc
 	var u config.User
 	u, err = o.config.GetUser(*user)

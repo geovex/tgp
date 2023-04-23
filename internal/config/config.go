@@ -28,6 +28,7 @@ type parsedConfig struct {
 	Listen_Url  toml.Primitive
 	Secret      *string
 	Host        *string
+	Stats_Sock  *string
 	Obfuscate   *bool
 	Adtag       *string
 	Socks5      *string
@@ -51,6 +52,7 @@ type Config struct {
 	allowIPv6   bool
 	secret      *string
 	host        *string
+	stats_sock  *string
 	obfuscate   bool
 	AdTag       *string
 	socks5      *string
@@ -124,4 +126,8 @@ func (c *Config) GetDefaultSocks() (url, user, pass *string) {
 
 func (c *Config) GetHost() *string {
 	return c.host
+}
+
+func (c *Config) GetStatsSock() *string {
+	return c.stats_sock
 }

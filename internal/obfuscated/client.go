@@ -8,12 +8,14 @@ import (
 	"net"
 
 	"github.com/geovex/tgp/internal/config"
+	"github.com/geovex/tgp/internal/stats"
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 type ClientHandler struct {
-	client net.Conn
-	config *config.Config
+	statsHandle *stats.StatsHandle
+	client      net.Conn
+	config      *config.Config
 	// available after handshake
 	// TODO: decouple this
 	user      *config.User
@@ -21,15 +23,17 @@ type ClientHandler struct {
 	cliStream dataStream
 }
 
-func NewClient(cfg *config.Config, client net.Conn) *ClientHandler {
+func NewClient(cfg *config.Config, statsHandle *stats.StatsHandle, client net.Conn) *ClientHandler {
 	return &ClientHandler{
-		config: cfg,
-		client: client,
+		statsHandle: statsHandle,
+		config:      cfg,
+		client:      client,
 	}
 }
 
 func (o *ClientHandler) HandleClient() (err error) {
 	defer o.client.Close()
+	defer o.statsHandle.Close()
 	var initialPacket tgcrypt.Nonce
 	n, err := io.ReadFull(o.client, initialPacket[:])
 	if err != nil {
@@ -53,6 +57,7 @@ func (o *ClientHandler) handleFallBack(initialPacket []byte) (err error) {
 	if o.config.GetHost() == nil {
 		return fmt.Errorf("no fall back host")
 	}
+	o.statsHandle.SetState(stats.Fallback)
 	fmt.Printf("redirect conection to fake host\n")
 	sa, su, sp := o.config.GetDefaultSocks()
 	dc, err := dcConnectorFromSocks(su, sa, sp, o.config.GetAllowIPv6())
@@ -73,6 +78,11 @@ func (o *ClientHandler) handleFallBack(initialPacket []byte) (err error) {
 }
 
 func (o *ClientHandler) processWithConfig() (err error) {
+	s, ok := o.client.(*net.TCPConn)
+	if !ok {
+		panic("not a TCP connection")
+	}
+	o.statsHandle.SetConnected(s)
 	if o.user.AdTag == nil { // no intermidiate proxy required
 		dcConector, err := dcConnectorFromSocks(o.user.Socks5, o.user.Socks5_user, o.user.Socks5_pass, o.config.GetAllowIPv6())
 		if err != nil {
@@ -86,8 +96,10 @@ func (o *ClientHandler) processWithConfig() (err error) {
 		if o.user.Obfuscate != nil && *o.user.Obfuscate {
 			dcCtx := tgcrypt.DcCtxNew(o.cliCtx.Dc, o.cliCtx.Protocol)
 			dcStream = ObfuscateDC(sock, dcCtx)
+			o.statsHandle.SetState(stats.Obfuscated)
 		} else {
 			dcStream = LoginDC(sock, o.cliCtx.Protocol)
+			o.statsHandle.SetState(stats.Obfuscated)
 		}
 		defer dcStream.Close()
 		transceiveDataStreams(o.cliStream, dcStream)
@@ -106,6 +118,7 @@ func (o *ClientHandler) processWithConfig() (err error) {
 		}
 		defer mp.CloseStream()
 		clientMsgStream := newMsgStream(o.cliStream)
+		o.statsHandle.SetState(stats.Middleproxy)
 		transceiveMsg(clientMsgStream, mp)
 	}
 	return nil
