@@ -69,6 +69,7 @@ func (s *server) listenForStats() error {
 		//no stats socket specified
 		return nil
 	}
+	os.Remove(*sockPath)
 	l, err := net.Listen("unix", *sockPath)
 	if err != nil {
 		return err

@@ -9,6 +9,7 @@ import (
 var defaultConfigData = `
 listen_url = "0.0.0.0:6666"
 #secret = "dd000102030405060708090a0b0c0d0e0f"
+stats_sock = "tgp.stats"
 socks5 = "127.0.0.1:9050"
 # For now empty password is not allowed. because of https://github.com/golang/go/issues/57285
 host = "google.com:443"

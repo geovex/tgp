@@ -6,6 +6,7 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 - multiple users (with different secrets)
 - socks5 proxy
 - Fake tls protocol
+- stats through unix socket
 ## Experimental features
 - adtag support (direct egress connection is required,
                  no nat or proxy, ip can not be hidden)
@@ -28,7 +29,7 @@ ipv6 = true # try IPv6 while connecting to DC
 stats_sock = "tgp.stats"
 # optional obfuscation for outgoing connections
 obfuscate = true
-# fallback host for dpi connection probes (optional
+# fallback host for dpi connection probes (optional)
 host = "google.com:443"
 # Global secret can be specified here. And just one user "_" will be configured.
 # (optional)
