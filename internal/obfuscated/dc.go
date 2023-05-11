@@ -114,10 +114,16 @@ func NewDcSocksConnector(allowIPv6 bool, socks5 string, user, pass *string) *DcS
 // create proxy dialer according to socks5 url and auth
 func (dsc *DcSocksConnector) createDialer() (proxy.Dialer, error) {
 	var auth *proxy.Auth
-	if dsc.user != nil && dsc.pass != nil {
+	if dsc.user != nil {
+		var pass string
+		if dsc.pass == nil {
+			pass = ""
+		} else {
+			pass = *dsc.pass
+		}
 		auth = &proxy.Auth{
 			User:     *dsc.user,
-			Password: *dsc.pass,
+			Password: pass,
 		}
 	}
 	dialer, err := proxy.SOCKS5("tcp", dsc.socks5, auth, proxy.Direct)
