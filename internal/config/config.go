@@ -21,7 +21,7 @@ allowipv6 = true
 [users.2] 
 secret = "dd101112131415161718191a1b1c1d1e1f"
 socks5 = ""
-adtag = "0000000000000000000000000000000000"
+adtag = "00000000000000000000000000000000"
 `
 
 type parsedConfig struct {
