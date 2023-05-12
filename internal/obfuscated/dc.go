@@ -77,7 +77,7 @@ func (dcc *DcDirectConnector) ConnectDC(dc int16) (stream io.ReadWriteCloser, er
 		dcAddr6 = ""
 	}
 	c, err4, err6 := dialBoth(dcAddr4, dcAddr6, proxy.Direct)
-	if err4 != nil || err6 != nil {
+	if err4 != nil && err6 != nil {
 		return nil, fmt.Errorf("can't connect to dc %w, %w", err4, err6)
 	}
 	setNoDelay(c)
