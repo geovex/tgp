@@ -18,8 +18,18 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 
 `./tgp <config_path.toml>`
 
-# Config file format
+# Config #
+
 Config file is a toml-formatted file. For example:
+
+## Minimal conffig ##
+
+```toml
+listen_url = "0.0.0.0:6666"
+secret = "dd000102030405060708090a0b0c0d0e0f"
+```
+
+## Config file format ##
 ```toml
 listen_url = ["0.0.0.0:6666", "[::]:6666"]
 # listen_url = "0.0.0.0:6666" #you can specify one listen address
