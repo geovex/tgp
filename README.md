@@ -37,7 +37,6 @@ host = "google.com:443"
 # Set socks5 proxy for egress traffic (optional, disables middleproxy)
 socks5 = "127.0.0.1:9050"
 # Auth for SOCKS5 (optional)
-# Now empty password is not allowed. because of https://github.com/golang/go/issues/57285
 socks5_user = "test"
 socks5_pass = "test"
 [users]
