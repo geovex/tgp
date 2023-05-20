@@ -25,17 +25,18 @@ adtag = "00000000000000000000000000000000"
 `
 
 type parsedConfig struct {
-	Listen_Url  toml.Primitive
-	Secret      *string
-	Host        *string
-	Stats_Sock  *string
-	Obfuscate   *bool
-	Adtag       *string
-	Socks5      *string
-	Socks5_user *string
-	Socks5_pass *string
-	AllowIPv6   *bool
-	Users       *map[string]toml.Primitive
+	Listen_Url       toml.Primitive
+	Secret           *string
+	Host             *string
+	Ignore_timestamp *bool
+	Stats_Sock       *string
+	Obfuscate        *bool
+	Adtag            *string
+	Socks5           *string
+	Socks5_user      *string
+	Socks5_pass      *string
+	AllowIPv6        *bool
+	Users            *map[string]toml.Primitive
 }
 
 type parsedUserPrimitive struct {
@@ -48,17 +49,18 @@ type parsedUserPrimitive struct {
 }
 
 type Config struct {
-	listen_Urls []string
-	allowIPv6   bool
-	secret      *string
-	host        *string
-	stats_sock  *string
-	obfuscate   bool
-	AdTag       *string
-	socks5      *string
-	socks5_user *string
-	socks5_pass *string
-	users       *userDB
+	listen_Urls     []string
+	allowIPv6       bool
+	secret          *string
+	host            *string
+	ignoreTimestamp bool
+	stats_sock      *string
+	obfuscate       bool
+	AdTag           *string
+	socks5          *string
+	socks5_user     *string
+	socks5_pass     *string
+	users           *userDB
 }
 
 func (c *Config) GetListenUrl() []string {
@@ -126,6 +128,10 @@ func (c *Config) GetDefaultSocks() (url, user, pass *string) {
 
 func (c *Config) GetHost() *string {
 	return c.host
+}
+
+func (c *Config) GetIgnoreTimestamp() bool {
+	return c.ignoreTimestamp
 }
 
 func (c *Config) GetStatsSock() *string {

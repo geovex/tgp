@@ -34,6 +34,8 @@ secret = "dd000102030405060708090a0b0c0d0e0f"
 listen_url = ["0.0.0.0:6666", "[::]:6666"]
 # listen_url = "0.0.0.0:6666" #you can specify one listen address
 ipv6 = true # try IPv6 while connecting to DC
+# ignore wrong timestamp for clients during faketls auth
+#ignore_timestamp = false
 # path for unix domain socket for getting stats
 # you can get results with socat
 stats_sock = "tgp.stats"

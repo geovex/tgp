@@ -102,3 +102,62 @@ func TestMultipleListenUrls(t *testing.T) {
 		t.Errorf("multiple listen_url not parsed correctly")
 	}
 }
+
+func TestIgnoreTimestampTrue(t *testing.T) {
+	config := `
+		listen_url = "0.0.0.0:6666"
+		ignore_timestamp = true
+		secret = "dd000102030405060708090a0b0c0d0e0f"
+	`
+	var pc parsedConfig
+	md, err := toml.Decode(config, &pc)
+	if err != nil {
+		t.Errorf("timestamp config not decoded: %v", err)
+	}
+	c, err := configFromParsed(&pc, &md)
+	if err != nil {
+		t.Errorf("timestamp config not parsed: %v", err)
+	}
+	if c.GetIgnoreTimestamp() != true {
+		t.Errorf("ignore_timestamps not parsed correctly")
+	}
+}
+
+func TestIgnoreTimestampFalse(t *testing.T) {
+	config := `
+		listen_url = "0.0.0.0:6666"
+		ignore_timestamp = false
+		secret = "dd000102030405060708090a0b0c0d0e0f"
+	`
+	var pc parsedConfig
+	md, err := toml.Decode(config, &pc)
+	if err != nil {
+		t.Errorf("timestamp config not decoded: %v", err)
+	}
+	c, err := configFromParsed(&pc, &md)
+	if err != nil {
+		t.Errorf("timestamp config not parsed: %v", err)
+	}
+	if c.GetIgnoreTimestamp() != false {
+		t.Errorf("ignore_timestamps not parsed correctly")
+	}
+}
+
+func TestIgnoreTimestampDefault(t *testing.T) {
+	config := `
+		listen_url = "0.0.0.0:6666"
+		secret = "dd000102030405060708090a0b0c0d0e0f"
+	`
+	var pc parsedConfig
+	md, err := toml.Decode(config, &pc)
+	if err != nil {
+		t.Errorf("timestamp config not decoded: %v", err)
+	}
+	c, err := configFromParsed(&pc, &md)
+	if err != nil {
+		t.Errorf("timestamp config not parsed: %v", err)
+	}
+	if c.GetIgnoreTimestamp() != false {
+		t.Errorf("ignore_timestamps not parsed correctly")
+	}
+}

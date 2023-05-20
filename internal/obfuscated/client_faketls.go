@@ -50,15 +50,16 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (er
 }
 
 func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx) error {
-	// checking timestamp
-	// TODO: consider it optional
-	skew := time.Now().UTC().Unix() - int64(cryptClient.Timestamp)
-	skewAbs := skew
-	if skewAbs < 0 {
-		skewAbs = -skewAbs
-	}
-	if skewAbs > 1000 {
-		return fmt.Errorf("time skew too big: %d", skewAbs)
+	if !o.config.GetIgnoreTimestamp() {
+		// checking timestamp
+		skew := time.Now().UTC().Unix() - int64(cryptClient.Timestamp)
+		skewAbs := skew
+		if skewAbs < 0 {
+			skewAbs = -skewAbs
+		}
+		if skewAbs > 1000 {
+			return fmt.Errorf("time skew too big: %d", skewAbs)
+		}
 	}
 	zero32 := make([]byte, 32)
 	sessionIdLen := cryptClient.Header[43]

@@ -80,6 +80,12 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 	} else {
 		obfuscate = *parsed.Obfuscate
 	}
+	var ignoreTimestamp bool
+	if parsed.Ignore_timestamp == nil {
+		ignoreTimestamp = false
+	} else {
+		ignoreTimestamp = *parsed.Ignore_timestamp
+	}
 	var users *userDB
 	if parsed.Users != nil && parsed.Secret == nil {
 		users = NewUsers()
@@ -131,17 +137,18 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 		return nil, fmt.Errorf("specify either secret or users")
 	}
 	return &Config{
-		listen_Urls: listenUrls,
-		allowIPv6:   allowIPv6,
-		obfuscate:   obfuscate,
-		AdTag:       parsed.Adtag,
-		secret:      parsed.Secret,
-		host:        parsed.Host,
-		stats_sock:  parsed.Stats_Sock,
-		socks5:      parsed.Socks5,
-		socks5_user: parsed.Socks5_user,
-		socks5_pass: parsed.Socks5_pass,
-		users:       users,
+		ignoreTimestamp: ignoreTimestamp,
+		listen_Urls:     listenUrls,
+		allowIPv6:       allowIPv6,
+		obfuscate:       obfuscate,
+		AdTag:           parsed.Adtag,
+		secret:          parsed.Secret,
+		host:            parsed.Host,
+		stats_sock:      parsed.Stats_Sock,
+		socks5:          parsed.Socks5,
+		socks5_user:     parsed.Socks5_user,
+		socks5_pass:     parsed.Socks5_pass,
+		users:           users,
 	}, nil
 }
 
