@@ -183,7 +183,6 @@ type MiddleProxyStream struct {
 	protoCli  uint8
 	seq       uint32
 	ctx       *tgcrypt.MiddleCtx
-	// TODO: may be divide structure here
 	// rpcType        []byte
 	// rpcKeySelector []byte
 	// rpcSchema      []byte
@@ -434,7 +433,7 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 	fullmsg = append(fullmsg, tgcrypt.RpcProxyReqTag[:]...)
 	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, flags)
 	fullmsg = append(fullmsg, m.connId[:]...)
-	// TODO: optional ip obfuscation
+	// TODO: option for obfuscation
 	ip6 := m.cliAddr.Addr().As16()
 	if m.cliAddr.Addr().Is4() {
 		ip6[10] = 0xff

@@ -68,8 +68,7 @@ type MiddleCtx struct {
 	AdTag    []byte
 	Out      netip.AddrPort
 	MP       netip.AddrPort
-	// TODO: may be divide here
-	Obf *MpCtx
+	Obf      *MpCtx
 }
 
 func NewMiddleCtx(

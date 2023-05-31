@@ -13,8 +13,7 @@ type Stats struct {
 
 func New() *Stats {
 	return &Stats{
-		lock: sync.RWMutex{},
-		// TODO: do slab here
+		lock:    sync.RWMutex{},
 		clients: []*Client{},
 	}
 }
@@ -48,7 +47,6 @@ func (s *Stats) AsString() string {
 	// generate per-user stats
 	userStats := map[string]int{}
 	fallbacks := 0
-	// TODO: optimize this
 	for _, c := range s.clients {
 		if c.Name != nil && *c.Name != "" {
 			userStats[*c.Name]++

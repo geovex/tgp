@@ -17,7 +17,6 @@ type ClientHandler struct {
 	client      net.Conn
 	config      *config.Config
 	// available after handshake
-	// TODO: decouple this
 	user      *config.User
 	cliCtx    *tgcrypt.ObfCtx
 	cliStream dataStream
