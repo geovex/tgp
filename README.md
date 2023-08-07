@@ -20,7 +20,17 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 
 # Config #
 
-Config file is a toml-formatted file. For example:
+Config file is a toml formatted file. 
+
+*Root section*
+
+Specifies listen interfaces, ports, and default user settings that can be modified in per-user sections. If you just want one user, specify secret in the root section and skip the users sections.
+
+*users* 
+
+ach sub-section specifies parameters for a single user. There is also a simple form: 'name=secret' to use the root section's default values.
+
+Here is an exampls:
 
 ## Minimal config ##
 
@@ -29,7 +39,8 @@ listen_url = "0.0.0.0:6666"
 secret = "dd000102030405060708090a0b0c0d0e0f"
 ```
 
-## Config file format ##
+## Thorough config with all options ##
+
 ```toml
 listen_url = ["0.0.0.0:6666", "[::]:6666"]
 # listen_url = "0.0.0.0:6666" #you can specify one listen address
