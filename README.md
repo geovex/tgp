@@ -22,7 +22,7 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 
 Config file is a toml-formatted file. For example:
 
-## Minimal conffig ##
+## Minimal config ##
 
 ```toml
 listen_url = "0.0.0.0:6666"
