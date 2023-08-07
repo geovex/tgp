@@ -14,9 +14,19 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 ## Not supported (yet) ##
 - media CDN support
 
+## Building ##
+
+```shell
+go mod download
+
+go build ./cmd/tgp
+```
+
 ## Starting ##
 
-`./tgp <config_path.toml>`
+```shell 
+./tgp <config_path.toml>
+```
 
 # Config #
 
