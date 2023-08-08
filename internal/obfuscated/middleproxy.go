@@ -151,7 +151,6 @@ func parseList(r io.ReadCloser) (*maplist.MapList[int16, string], error) {
 		text := scanner.Text()
 		var id int16
 		var url string
-		fmt.Printf("scanenr: %s\n", text)
 		_, err := fmt.Sscanf(text, "proxy_for %d %s", &id, &url)
 		if len(url) > 1 {
 			url = url[:len(url)-1]
