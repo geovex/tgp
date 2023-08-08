@@ -48,8 +48,7 @@ func (s *server) run() error {
 	proxy := make(chan error, 1)
 	defer close(proxy)
 	for _, url := range s.conf.GetListenUrl() {
-		waiter := make(chan error, 1)
-		go func(u string) { waiter <- s.handleListener(u) }(url)
+		go func(u string) { proxy <- s.handleListener(u) }(url)
 	}
 	stats := make(chan error, 1)
 	defer close(stats)
