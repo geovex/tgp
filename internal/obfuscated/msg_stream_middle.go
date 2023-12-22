@@ -81,6 +81,7 @@ func (s *msgBlockStream) ReadMsg() (m *message, err error) {
 	for bytes.Equal(l[:], tgcrypt.PaddingFiller[:]) {
 		_, err = io.ReadFull(s.bs, l[:])
 		if err != nil {
+			err = fmt.Errorf("failed to read message length: %w", err)
 			return
 		}
 	}

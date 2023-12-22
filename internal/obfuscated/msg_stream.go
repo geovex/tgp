@@ -1,8 +1,6 @@
 package obfuscated
 
-import (
-	"sync"
-)
+import "sync"
 
 type message struct {
 	data     []byte // if nil, skip send
@@ -84,8 +82,8 @@ func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 		}
 	}()
 	go func() {
-		defer client.CloseStream()
 		defer dc.CloseStream()
+		defer client.CloseStream()
 		defer wg.Done()
 		for {
 			var msg *message

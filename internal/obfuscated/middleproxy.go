@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/netip"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/geovex/tgp/internal/config"
@@ -19,14 +20,18 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-const middleSecretUrl = "https://core.telegram.org/getProxySecret"
-const middleConfigIp4 = "https://core.telegram.org/getProxyConfig"
-const middleConfigIp6 = "https://core.telegram.org/getProxyConfigV6"
+const (
+	middleSecretUrl = "https://core.telegram.org/getProxySecret"
+	middleConfigIp4 = "https://core.telegram.org/getProxyConfig"
+	middleConfigIp6 = "https://core.telegram.org/getProxyConfigV6"
+)
 
-const updateTime = 3600
-
-var mpmLock sync.Mutex
-var mpm *MiddleProxyManager
+var (
+	mpmLock             sync.Mutex
+	mpm                 *MiddleProxyManager
+	connectTimeout      = time.Second * 5
+	proxyListUpdateTime = time.Second * 3600
+)
 
 // get or create MiddleProxyManager
 func getMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
@@ -43,24 +48,24 @@ func getMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 }
 
 type MiddleProxyManager struct {
-	cfg      *config.Config
-	mutex    sync.Mutex
-	middleV4 *maplist.MapList[int16, string]
-	middleV6 *maplist.MapList[int16, string]
-	secret   []byte
-	timer    *time.Ticker
+	cfg        *config.Config
+	mutex      sync.Mutex
+	middleV4   *maplist.MapList[int16, string]
+	middleV6   *maplist.MapList[int16, string]
+	secret     []byte
+	retryTimer *time.Ticker
 }
 
 func NewMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 	m := &MiddleProxyManager{
-		cfg:   cfg,
-		timer: time.NewTicker(time.Millisecond * 1000),
+		cfg:        cfg,
+		retryTimer: time.NewTicker(time.Millisecond * 1000),
 	}
 	err := m.updateData()
 	if err != nil {
 		return nil, err
 	}
-	go m.updateRoutine()
+	go m.proxyListUpdateRoutine()
 	return m, nil
 }
 
@@ -128,9 +133,9 @@ func (m *MiddleProxyManager) updateData() error {
 	return nil
 }
 
-func (m *MiddleProxyManager) updateRoutine() {
+func (m *MiddleProxyManager) proxyListUpdateRoutine() {
 	for {
-		time.Sleep(time.Second * updateTime)
+		time.Sleep(proxyListUpdateTime)
 		m.updateData()
 		// TODO process errors
 		// TODO condition to stop (may be use ticker)
@@ -178,25 +183,26 @@ func (m *MiddleProxyManager) GetProxy(dc int16) (url4, url6 string, err error) {
 }
 
 type MiddleProxyStream struct {
-	initiated bool
-	protoCli  uint8
-	seq       uint32
-	ctx       *tgcrypt.MiddleCtx
+	initiated     bool
+	closed        atomic.Bool
+	thisProtocol  uint8
+	seq           uint32
+	encryptionCtx *tgcrypt.MiddleCtx
 	// rpcType        []byte
 	// rpcKeySelector []byte
 	// rpcSchema      []byte
 	//rpcTimeStamp //not really needed after login
-	cliAddr     netip.AddrPort
-	mpNonce     tgcrypt.RpcNonce
-	mSock       dataStream
-	mDataStream *msgBlockStream
-	connId      [8]byte
+	clientAddr           netip.AddrPort
+	middleProxyNonce     tgcrypt.RpcNonce
+	middleProxySock      dataStream
+	middleProxyMsgStream *msgBlockStream
+	connId               [8]byte
 }
 
 //lint:ignore U1000 reserved for future use
 func (m *MiddleProxyManager) connectRetry(dc int16, client net.Conn, cliProtocol uint8, addTag []byte) (*MiddleProxyStream, error) {
 	for {
-		<-m.timer.C
+		<-m.retryTimer.C
 		mp, err := m.connect(dc, client, cliProtocol, addTag)
 		if err != nil {
 			continue
@@ -209,7 +215,7 @@ func (m *MiddleProxyManager) connectRetry(dc int16, client net.Conn, cliProtocol
 	}
 }
 
-func (m *MiddleProxyManager) connect(dc int16, client net.Conn, cliProtocol uint8, addTag []byte) (*MiddleProxyStream, error) {
+func (m *MiddleProxyManager) connect(dc int16, client net.Conn, clientProtocol uint8, addTag []byte) (*MiddleProxyStream, error) {
 	//fmt.Printf("middle connect dc: %d\n", dc)
 	url4, url6, err := m.GetProxy(dc)
 	if err != nil {
@@ -219,20 +225,20 @@ func (m *MiddleProxyManager) connect(dc int16, client net.Conn, cliProtocol uint
 		url6 = ""
 	}
 	fmt.Printf("connecting to %d, %s %s\n", dc, url4, url6)
-	mp, err := connectBoth(url4, url6)
+	this2middle, err := connectAny(url4, url6)
 	if err != nil {
 		fmt.Printf("middleproxy connection failed\n")
 		if err != nil {
 			return nil, err
 		}
 	}
-	outsock, ok := mp.(*net.TCPConn)
+	this2middleTcp, ok := this2middle.(*net.TCPConn)
 	if !ok {
 		panic("failed to cast tcp connection")
 	}
-	outsock.SetNoDelay(true)
-	rs := newRawStream(mp, tgcrypt.Full)
-	mps := NewMiddleProxyStream(rs, client, outsock, mp, addTag, cliProtocol)
+	this2middleTcp.SetNoDelay(true)
+	rs := newRawStream(this2middle, tgcrypt.Full)
+	mps := NewMiddleProxyStream(rs, client, this2middle, addTag, clientProtocol)
 	if err != nil {
 		return nil, err
 	}
@@ -240,15 +246,15 @@ func (m *MiddleProxyManager) connect(dc int16, client net.Conn, cliProtocol uint
 }
 
 // only direct connections supported
-func connectBoth(url4, url6 string) (c net.Conn, err error) {
+func connectAny(url4, url6 string) (c net.Conn, err error) {
 	var err6, err4 error
 	if url6 != "" {
-		c, err6 = net.DialTimeout("tcp", url6, time.Second*5)
+		c, err6 = net.DialTimeout("tcp", url6, connectTimeout)
 		if err6 == nil {
 			return c, nil
 		}
 	}
-	c, err4 = net.DialTimeout("tcp", url4, time.Second*5)
+	c, err4 = net.DialTimeout("tcp", url4, connectTimeout)
 	if err4 == nil {
 		return c, nil
 	}
@@ -259,32 +265,33 @@ func connectBoth(url4, url6 string) (c net.Conn, err error) {
 	return nil, fmt.Errorf("can't connect to middle proxy %w %w", err4, err6)
 }
 
-func NewMiddleProxyStream(mpStream dataStream, client, out, mp net.Conn, addTag []byte, protocolCli uint8) *MiddleProxyStream {
-	outa := out.LocalAddr() // client address
-	oatcp, ok := outa.(*net.TCPAddr)
+func NewMiddleProxyStream(mpStream dataStream, client, mp net.Conn, addTag []byte, clientProtocol uint8) *MiddleProxyStream {
+	this2mpLocalAddr := mp.LocalAddr() // client address
+	this2mpLocalTcpAddr, ok := this2mpLocalAddr.(*net.TCPAddr)
 	if !ok {
-		panic("client is not a socket")
+		panic("middle proxy connection has no local address")
 	}
-	mpa := mp.RemoteAddr() // outbound address
-	mptcp, ok := mpa.(*net.TCPAddr)
+	middleProxyAddr := mp.RemoteAddr() // outbound address
+	middleProxyTcpAddr, ok := middleProxyAddr.(*net.TCPAddr)
 	if !ok {
-		panic("out is not a socket")
+		panic("middle proxy connection has no remote address")
 	}
-	ctx := tgcrypt.NewMiddleCtx(oatcp.AddrPort(), mptcp.AddrPort(), addTag)
+	ctx := tgcrypt.NewMiddleCtx(this2mpLocalTcpAddr.AddrPort(), middleProxyTcpAddr.AddrPort(), addTag)
 	seq := uint32(0)
 	seq -= 2
-	clia := client.LocalAddr()
-	clitcp, ok := clia.(*net.TCPAddr)
+	cli2thisAddr := client.RemoteAddr()
+	cli2thisTcpAddr, ok := cli2thisAddr.(*net.TCPAddr)
 	if !ok {
-		panic("client is not a socket")
+		panic("clientent connection has no local address")
 	}
 	return &MiddleProxyStream{
-		initiated: false,
-		protoCli:  protocolCli,
-		cliAddr:   clitcp.AddrPort(),
-		seq:       seq,
-		ctx:       ctx,
-		mSock:     mpStream,
+		initiated:       false,
+		closed:          atomic.Bool{},
+		thisProtocol:    clientProtocol,
+		clientAddr:      cli2thisTcpAddr.AddrPort(),
+		seq:             seq,
+		encryptionCtx:   ctx,
+		middleProxySock: mpStream,
 	}
 }
 
@@ -308,20 +315,20 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 	initialMsgData = append(initialMsgData, tgcrypt.RpcCryptoAesTag[:]...)
 	timestampCli := binary.LittleEndian.AppendUint32([]byte{}, uint32((time.Now().Unix())%0x100000000))
 	initialMsgData = append(initialMsgData, timestampCli...) // crypto timestamp
-	initialMsgData = append(initialMsgData, m.ctx.CliNonce[:]...)
+	initialMsgData = append(initialMsgData, m.encryptionCtx.CliNonce[:]...)
 	msg := &message{
 		data:     initialMsgData,
 		quickack: false,
 		seq:      m.seq,
 	}
-	mpBlockStream := newRawStream(m.mSock, tgcrypt.Full)
-	mpMsgStream := newMsgBlockStream(mpBlockStream, 32)
-	err = mpMsgStream.WriteMsg(msg)
+	middleProxyRawStream := newRawStream(m.middleProxySock, tgcrypt.Full)
+	middleProxyMsgStream := newMsgBlockStream(middleProxyRawStream, 32)
+	err = middleProxyMsgStream.WriteMsg(msg)
 	if err != nil {
 		return fmt.Errorf("failed to send initial message: %w", err)
 	}
 	m.seq++
-	msg, err = mpMsgStream.ReadMsg()
+	msg, err = middleProxyMsgStream.ReadMsg()
 	if err != nil {
 		fmt.Printf("failed to read initial reply: %v\n", err)
 		return fmt.Errorf("failed to read initial reply: %w", err)
@@ -333,15 +340,15 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 	rpcKeySelector := msg.data[4:8]
 	rpcSchema := msg.data[8:12]
 	//rpcTimeStamp := reply.data[12:16]
-	copy(m.mpNonce[:], msg.data[16:32])
+	copy(m.middleProxyNonce[:], msg.data[16:32])
 	// TODO: check timestamp
 	if !bytes.Equal(rpcType, tgcrypt.RpcNonceTag[:]) ||
 		!bytes.Equal(rpcKeySelector, keySelector) ||
 		!bytes.Equal(rpcSchema, tgcrypt.RpcCryptoAesTag[:]) {
 		return fmt.Errorf("invalid initial reply")
 	}
-	m.ctx.SetObf(m.mpNonce[:], timestampCli, secret)
-	m.mDataStream = newMsgBlockStream(newBlockStream(m.mSock, m.ctx.Obf), 32) //m.ctx.Obf.BlockSize())
+	m.encryptionCtx.SetObf(m.middleProxyNonce[:], timestampCli, secret)
+	m.middleProxyMsgStream = newMsgBlockStream(newBlockStream(m.middleProxySock, m.encryptionCtx.Obf), 32) //m.ctx.Obf.BlockSize())
 	handshakeMsg := make([]byte, 0, 32)
 	handshakeMsg = append(handshakeMsg, tgcrypt.RpcHandShakeTag[:]...)
 	handshakeMsg = append(handshakeMsg, 0, 0, 0, 0)                //rpc flags
@@ -353,12 +360,12 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 		quickack: false,
 		seq:      m.seq,
 	}
-	err = m.mDataStream.WriteMsg(msg)
+	err = m.middleProxyMsgStream.WriteMsg(msg)
 	if err != nil {
 		return fmt.Errorf("failed to send encrypted handshake message: %w", err)
 	}
 	m.seq++
-	msg, err = m.mDataStream.ReadMsg()
+	msg, err = m.middleProxyMsgStream.ReadMsg()
 	if err != nil {
 		fmt.Printf("failed to read encrypted handshake reply: %v\n", err)
 		return fmt.Errorf("failed to read encrypted reply: %w", err)
@@ -376,13 +383,16 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 }
 
 func (m *MiddleProxyStream) ReadSrvMsg() (*message, error) {
-	msg, err := m.mDataStream.ReadMsg()
+	msg, err := m.middleProxyMsgStream.ReadMsg()
 	if err != nil {
-		fmt.Printf("failed to read message: %v\n", err)
+		// filter closed stream false positives
+		if !m.closed.Load() {
+			fmt.Printf("failed to read middleproxy message: %v\n", err)
+		}
 		return nil, fmt.Errorf("failed to read message: %w", err)
 	}
 	if len(msg.data) < 4 {
-		return nil, fmt.Errorf("wrong message received")
+		return nil, fmt.Errorf("wrong middleproxy message received")
 	} else if bytes.Equal(msg.data[:4], tgcrypt.RpcProxyAnsTag[:]) && len(msg.data) > 16 {
 		newmsg := message{
 			data:     msg.data[16:],
@@ -396,23 +406,23 @@ func (m *MiddleProxyStream) ReadSrvMsg() (*message, error) {
 		}
 		return &newmsg, nil
 	} else if bytes.Equal(msg.data[:4], tgcrypt.RpcCloseExtTag[:]) {
-		fmt.Printf("End of server stream")
-		return nil, fmt.Errorf("end of server stream")
+		fmt.Printf("End of middleproxy stream")
+		return nil, fmt.Errorf("end of middleproxy stream")
 	} else if bytes.Equal(msg.data[:4], tgcrypt.RpcUnknown[:]) {
 		newmsg := message{
 			data: nil,
 		}
 		return &newmsg, nil
 	} else {
-		fmt.Printf("Msg not parsed\n")
-		return nil, fmt.Errorf("msg not parsed")
+		fmt.Printf("Middleproxy message not parsed\n")
+		return nil, fmt.Errorf("middleproxy message not parsed")
 	}
 }
 
 func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 	var flags uint32
 	flags = tgcrypt.FlagHasAdTag | tgcrypt.FlagMagic | tgcrypt.FlagExtNode2
-	switch m.protoCli {
+	switch m.thisProtocol {
 	case tgcrypt.Abridged:
 		flags |= tgcrypt.FlagAbbridged
 	case tgcrypt.Intermediate:
@@ -420,7 +430,7 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 	case tgcrypt.Padded:
 		flags |= tgcrypt.FlagIntermediate | tgcrypt.FlagPad
 	default:
-		return fmt.Errorf("unknown client protocol: %d", m.protoCli)
+		return fmt.Errorf("unknown client protocol: %d", m.thisProtocol)
 	}
 	if msg.quickack {
 		flags |= tgcrypt.FlagQuickAck
@@ -433,26 +443,26 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, flags)
 	fullmsg = append(fullmsg, m.connId[:]...)
 	// TODO: option for obfuscation
-	ip6 := m.cliAddr.Addr().As16()
-	if m.cliAddr.Addr().Is4() {
+	ip6 := m.clientAddr.Addr().As16()
+	if m.clientAddr.Addr().Is4() {
 		ip6[10] = 0xff
 		ip6[11] = 0xff
 	}
 	// ip6 := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 168, 0, 1}
 	fullmsg = append(fullmsg, ip6[:]...)
-	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.ctx.MP.Port()))
-	ip6Cli := m.ctx.Out.Addr().As16()
-	if m.ctx.Out.Addr().Is4() {
+	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.encryptionCtx.MP.Port()))
+	ip6Cli := m.encryptionCtx.Out.Addr().As16()
+	if m.encryptionCtx.Out.Addr().Is4() {
 		ip6Cli[10] = 0xff
 		ip6Cli[11] = 0xff
 	}
 	//ip6Cli := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 168, 0, 1}
 	fullmsg = append(fullmsg, ip6Cli[:]...)
-	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.ctx.Out.Port()))
+	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.encryptionCtx.Out.Port()))
 	fullmsg = append(fullmsg, tgcrypt.ExtraSize[:]...)
 	fullmsg = append(fullmsg, tgcrypt.ProxyTag[:]...)
-	fullmsg = append(fullmsg, uint8(len(m.ctx.AdTag)))
-	fullmsg = append(fullmsg, m.ctx.AdTag...)
+	fullmsg = append(fullmsg, uint8(len(m.encryptionCtx.AdTag)))
+	fullmsg = append(fullmsg, m.encryptionCtx.AdTag...)
 	fullmsg = append(fullmsg, 0, 0, 0) //allign bytes
 	data := msg.data[:len(msg.data)-len(msg.data)%4]
 	fullmsg = append(fullmsg, data...) //trim padded message
@@ -462,7 +472,7 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 		quickack: false,
 		seq:      m.seq,
 	}
-	err := m.mDataStream.WriteMsg(&wrappedMsg)
+	err := m.middleProxyMsgStream.WriteMsg(&wrappedMsg)
 	if err != nil {
 		fmt.Printf("failed to send message: %v\n", err)
 		return fmt.Errorf("failed to send message: %w", err)
@@ -472,9 +482,10 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 }
 
 func (s *MiddleProxyStream) CloseStream() error {
-	if s.mDataStream == nil {
+	s.closed.Store(true)
+	if s.middleProxyMsgStream == nil {
 		return nil
 	} else {
-		return s.mDataStream.CloseStream()
+		return s.middleProxyMsgStream.CloseStream()
 	}
 }
