@@ -35,7 +35,7 @@ type parsedConfig struct {
 	Socks5           *string
 	Socks5_user      *string
 	Socks5_pass      *string
-	AllowIPv6        *bool
+	Ipv6             *bool
 	Users            *map[string]toml.Primitive
 }
 

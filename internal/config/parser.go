@@ -69,10 +69,10 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 	}
 	//check for ipv6
 	var allowIPv6 bool
-	if parsed.AllowIPv6 == nil {
+	if parsed.Ipv6 == nil {
 		allowIPv6 = false
 	} else {
-		allowIPv6 = *parsed.AllowIPv6
+		allowIPv6 = *parsed.Ipv6
 	}
 	var obfuscate bool
 	if parsed.Obfuscate == nil {
