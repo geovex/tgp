@@ -27,10 +27,11 @@ const (
 )
 
 var (
-	mpmLock             sync.Mutex
-	mpm                 *MiddleProxyManager
-	connectTimeout      = time.Second * 5
-	proxyListUpdateTime = time.Second * 3600
+	mpmLock                  sync.Mutex
+	mpm                      *MiddleProxyManager
+	connectTimeout           = time.Second * 5
+	proxyListUpdateTime      = time.Second * 3600
+	this2mpConnectRetryDelay = time.Millisecond * 1000
 )
 
 // get or create MiddleProxyManager
@@ -48,20 +49,22 @@ func getMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 }
 
 type MiddleProxyManager struct {
-	cfg        *config.Config
-	mutex      sync.Mutex
-	middleV4   *maplist.MapList[int16, string]
-	middleV6   *maplist.MapList[int16, string]
-	secret     []byte
-	retryTimer *time.Ticker
+	cfg                      *config.Config
+	mutex                    sync.Mutex
+	proxyListUpdateTicker    *time.Ticker
+	middleV4                 *maplist.MapList[int16, string]
+	middleV6                 *maplist.MapList[int16, string]
+	mpSecret                 []byte
+	this2mpConnectRetryTimer *time.Ticker
 }
 
 func NewMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 	m := &MiddleProxyManager{
-		cfg:        cfg,
-		retryTimer: time.NewTicker(time.Millisecond * 1000),
+		cfg:                      cfg,
+		this2mpConnectRetryTimer: time.NewTicker(this2mpConnectRetryDelay),
+		proxyListUpdateTicker:    time.NewTicker(proxyListUpdateTime),
 	}
-	err := m.updateData()
+	err := m.updateProxyList()
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +72,7 @@ func NewMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 	return m, nil
 }
 
-func (m *MiddleProxyManager) updateData() error {
+func (m *MiddleProxyManager) updateProxyList() error {
 	// ccreate dialer according to proxy settings
 	var dialer proxy.Dialer
 	sa, su, sp := m.cfg.GetDefaultSocks()
@@ -94,6 +97,7 @@ func (m *MiddleProxyManager) updateData() error {
 			Dial: dialer.Dial,
 		},
 	}
+	// TODO: this can be in parallel
 	response, err := httpClient.Get(middleSecretUrl)
 	if err != nil {
 		return fmt.Errorf("failed to get proxy secret: %w", err)
@@ -103,9 +107,6 @@ func (m *MiddleProxyManager) updateData() error {
 	if err != nil {
 		return fmt.Errorf("failed to read proxy secret: %w", err)
 	}
-	m.mutex.Lock()
-	m.secret = secret
-	m.mutex.Unlock()
 	// get ipv4 list
 	response, err = httpClient.Get(middleConfigIp4)
 	if err != nil || response.StatusCode != http.StatusOK {
@@ -115,9 +116,6 @@ func (m *MiddleProxyManager) updateData() error {
 	if err != nil {
 		return fmt.Errorf("failed to parse ip4 proxy list: %w", err)
 	}
-	m.mutex.Lock()
-	m.middleV4 = ip4List
-	m.mutex.Unlock()
 	// get ipv6 list
 	response, err = httpClient.Get(middleConfigIp6)
 	if err != nil || response.StatusCode != http.StatusOK {
@@ -128,6 +126,8 @@ func (m *MiddleProxyManager) updateData() error {
 		return fmt.Errorf("failed to parse ip6 proxy list: %w", err)
 	}
 	m.mutex.Lock()
+	m.mpSecret = secret
+	m.middleV4 = ip4List
 	m.middleV6 = ip6List
 	m.mutex.Unlock()
 	return nil
@@ -135,10 +135,13 @@ func (m *MiddleProxyManager) updateData() error {
 
 func (m *MiddleProxyManager) proxyListUpdateRoutine() {
 	for {
-		time.Sleep(proxyListUpdateTime)
-		m.updateData()
-		// TODO process errors
-		// TODO condition to stop (may be use ticker)
+		_, ok := <-m.proxyListUpdateTicker.C
+		if ok {
+			m.updateProxyList()
+			// TODO process errors
+		} else {
+			return
+		}
 	}
 }
 
@@ -146,7 +149,7 @@ func (m *MiddleProxyManager) proxyListUpdateRoutine() {
 func (m *MiddleProxyManager) GetSecret() []byte {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	return append([]byte{}, m.secret...)
+	return append([]byte{}, m.mpSecret...)
 }
 
 func parseList(r io.ReadCloser) (*maplist.MapList[int16, string], error) {
@@ -202,7 +205,7 @@ type MiddleProxyStream struct {
 //lint:ignore U1000 reserved for future use
 func (m *MiddleProxyManager) connectRetry(dc int16, client net.Conn, cliProtocol uint8, addTag []byte) (*MiddleProxyStream, error) {
 	for {
-		<-m.retryTimer.C
+		<-m.this2mpConnectRetryTimer.C
 		mp, err := m.connect(dc, client, cliProtocol, addTag)
 		if err != nil {
 			continue
