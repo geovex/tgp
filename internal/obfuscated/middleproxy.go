@@ -137,8 +137,10 @@ func (m *MiddleProxyManager) proxyListUpdateRoutine() {
 	for {
 		_, ok := <-m.proxyListUpdateTicker.C
 		if ok {
-			m.updateProxyList()
-			// TODO process errors
+			err := m.updateProxyList()
+			if err != nil {
+				fmt.Printf("failed to update middleproxy list: %v\n", err)
+			}
 		} else {
 			return
 		}
