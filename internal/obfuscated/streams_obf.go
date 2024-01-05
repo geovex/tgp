@@ -55,7 +55,7 @@ func (s *obfuscatedStream) Write(p []byte) (n int, err error) {
 	defer s.w.Unlock()
 	newbuf := make([]byte, len(p))
 	copy(newbuf, p)
-	// TODO: save decrypt context here
+	// TODO: may be save decrypt context here
 	s.obf.EncryptNext(newbuf)
 	n, err = s.stream.Write(newbuf)
 	return
