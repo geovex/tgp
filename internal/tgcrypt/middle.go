@@ -10,6 +10,9 @@ import (
 	"net/netip"
 )
 
+const MaxPayloadSize = 1024 * 1024 // 131200
+// supposed to be 1<<17-1 but i've seen 131176 in abridged and more in padded
+
 var (
 	RpcNonceTag     = [4]byte{0xaa, 0x87, 0xcb, 0x7a}
 	RpcCryptoAesTag = [4]byte{0x01, 0, 0, 0}

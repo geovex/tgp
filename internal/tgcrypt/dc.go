@@ -2,6 +2,7 @@ package tgcrypt
 
 // Context for obfuscation proxy-DC connection
 type DcCtx struct {
+	// Nonce is generated for this-dc connection
 	Nonce    Nonce
 	Protocol uint8
 	obf      Obfuscator

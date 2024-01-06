@@ -6,13 +6,16 @@ import (
 	"fmt"
 )
 
-// Context for client-proxy obfuscation
+// Context for client-This obfuscation
 type ObfCtx struct {
+	// Nonce received from client
 	Nonce    Nonce
+	// Secret from config
 	Secret   *Secret
 	Protocol uint8
 	Dc       int16
 	Random   [2]byte
+	// Obfuscastor context for client-this connection
 	obf      Obfuscator
 }
 
@@ -23,7 +26,7 @@ const (
 	Full         = 0
 )
 
-// Generate client encryption context
+// Generate client-this encryption context
 func ObfCtxFromNonce(header Nonce, secret *Secret) (c *ObfCtx, err error) {
 	encKey := header[8:40]
 	encIV := header[40:56]
