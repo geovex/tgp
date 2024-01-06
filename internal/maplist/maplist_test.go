@@ -29,4 +29,8 @@ func TestMapList(t *testing.T) {
 	if !ok || rndValue != 4 {
 		t.Errorf("Expected %v, got %v", 4, rndValue)
 	}
+	rndValue, ok = mapList.GetRandom(5)
+	if ok {
+		t.Errorf("Expected false, got %v", rndValue)
+	}
 }
