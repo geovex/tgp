@@ -2,7 +2,6 @@ package maplist
 
 import "math/rand"
 
-// TODO: tests here
 type MapList[K comparable, V any] struct {
 	Data map[K][]V
 }
