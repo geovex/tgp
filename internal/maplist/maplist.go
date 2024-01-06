@@ -17,7 +17,7 @@ func (m *MapList[K, V]) Add(key K, value V) {
 	if !ok {
 		m.Data[key] = []V{}
 	}
-	m.Data[key] = []V{value}
+	m.Data[key] = append(m.Data[key], value)
 }
 
 func (m *MapList[K, V]) GetRandom(key K) (V, bool) {
