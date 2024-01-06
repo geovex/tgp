@@ -38,4 +38,6 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: target-${{ matrix.os }}-go-${{ matrix.go-version }}
-        path: tgp
+        path: |
+          tgp
+          tgp.exe
