@@ -2,6 +2,7 @@ package maplist
 
 import "math/rand"
 
+// TODO: tests here
 type MapList[K comparable, V any] struct {
 	Data map[K][]V
 }
@@ -22,14 +23,14 @@ func (m *MapList[K, V]) Add(key K, value V) {
 
 func (m *MapList[K, V]) GetRandom(key K) (V, bool) {
 	var zero V
-	vl, ok := m.Data[key]
+	values_list, ok := m.Data[key]
 	if !ok {
 		return zero, false
 	}
-	vll := len(vl)
-	if vll == 0 {
+	values_list_len := len(values_list)
+	if values_list_len == 0 {
 		return zero, false
 	}
-	randIdx := rand.Intn(vll)
-	return vl[randIdx], true
+	randIdx := rand.Intn(values_list_len)
+	return values_list[randIdx], true
 }
