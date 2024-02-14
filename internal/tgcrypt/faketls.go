@@ -35,7 +35,7 @@ type FakeTlsCtx struct {
 }
 
 // Checks handshake bytes against user secret (does not check timestamp)
-// Returb faketls context in case os success.
+// Return client-this faketls context in case os success.
 func FakeTlsCtxFromTlsHeader(header FakeTlsHandshake, secret *Secret) (c *FakeTlsCtx, err error) {
 	digest := header[11 : 11+32]
 	msg := make([]byte, FakeTlsHandshakeLen)

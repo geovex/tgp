@@ -20,12 +20,6 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-const (
-	middleSecretUrl = "https://core.telegram.org/getProxySecret"
-	middleConfigIp4 = "https://core.telegram.org/getProxyConfig"
-	middleConfigIp6 = "https://core.telegram.org/getProxyConfigV6"
-)
-
 var (
 	mpmLock                  sync.Mutex
 	mpm                      *MiddleProxyManager
@@ -98,7 +92,7 @@ func (m *MiddleProxyManager) updateProxyList() error {
 		},
 	}
 	// TODO: this can be in parallel
-	response, err := httpClient.Get(middleSecretUrl)
+	response, err := httpClient.Get(tgcrypt.MiddleSecretUrl)
 	if err != nil {
 		return fmt.Errorf("failed to get proxy secret: %w", err)
 	}
@@ -108,7 +102,7 @@ func (m *MiddleProxyManager) updateProxyList() error {
 		return fmt.Errorf("failed to read proxy secret: %w", err)
 	}
 	// get ipv4 list
-	response, err = httpClient.Get(middleConfigIp4)
+	response, err = httpClient.Get(tgcrypt.MiddleConfigIp4)
 	if err != nil || response.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to get ip4 proxy list: %w", err)
 	}
@@ -117,7 +111,7 @@ func (m *MiddleProxyManager) updateProxyList() error {
 		return fmt.Errorf("failed to parse ip4 proxy list: %w", err)
 	}
 	// get ipv6 list
-	response, err = httpClient.Get(middleConfigIp6)
+	response, err = httpClient.Get(tgcrypt.MiddleConfigIp6)
 	if err != nil || response.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to get ip6 proxy list: %w", err)
 	}

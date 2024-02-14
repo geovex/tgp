@@ -10,6 +10,12 @@ import (
 	"net/netip"
 )
 
+const (
+	MiddleSecretUrl = "https://core.telegram.org/getProxySecret"
+	MiddleConfigIp4 = "https://core.telegram.org/getProxyConfig"
+	MiddleConfigIp6 = "https://core.telegram.org/getProxyConfigV6"
+)
+
 const MaxPayloadSize = 1024 * 1024 // 131200
 // supposed to be 1<<17-1 but i've seen 131176 in abridged and more in padded
 
@@ -94,19 +100,22 @@ func NewMiddleCtx(
 }
 
 // initialize obfuscator for MiddleCtx
+// MpNonce is usualu received from middleproxy upo connection
+// CliTimestamp measured upon connection
+// MpSecret usualy received from [MiddleSecretUrl]
 func (m *MiddleCtx) SetObf(
-	nonceSrv, tsCli, secret []byte,
+	MpNonce, CliTimestamp, MpSecret []byte,
 ) {
-	var zero4 = []byte{0x00, 0x00, 0x00, 0x00}
+	var noIp4 = []byte{0x00, 0x00, 0x00, 0x00}
 	s := make([]byte, 0, 246)
-	s = append(s, nonceSrv...)
+	s = append(s, MpNonce...)
 	s = append(s, m.CliNonce[:]...)
-	s = append(s, tsCli...)
+	s = append(s, CliTimestamp...)
 	if m.MP.Addr().Is4() {
 		ip := m.MP.Addr().As4()
 		s = append(s, ip[3], ip[2], ip[1], ip[0])
 	} else if m.MP.Addr().Is6() {
-		s = append(s, zero4...)
+		s = append(s, noIp4...)
 	} else {
 		panic("not supported address type")
 	}
@@ -116,13 +125,13 @@ func (m *MiddleCtx) SetObf(
 		ip := m.Out.Addr().As4()
 		s = append(s, ip[3], ip[2], ip[1], ip[0])
 	} else if m.Out.Addr().Is6() {
-		s = append(s, zero4...)
+		s = append(s, noIp4...)
 	} else {
 		panic("not supported address type")
 	}
 	s = binary.LittleEndian.AppendUint16(s, m.MP.Port())
-	s = append(s, secret...)
-	s = append(s, nonceSrv...)
+	s = append(s, MpSecret...)
+	s = append(s, MpNonce...)
 	if m.Out.Addr().Is6() {
 		ip6 := m.Out.Addr().As16()
 		s = append(s, ip6[:]...)
