@@ -1,22 +1,22 @@
-package obfuscated
+package network_exchange
 
 import (
 	"io"
 	"sync"
 
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
 type obfuscatedStream struct {
 	r, w     sync.Mutex
 	stream   io.ReadWriteCloser
-	nonce    *tgcrypt.Nonce
+	nonce    *tgcrypt_encryption.Nonce
 	protocol uint8
-	obf      tgcrypt.Obfuscator
+	obf      tgcrypt_encryption.Obfuscator
 }
 
 // create obfuscated stream if nonce is specified, initiate will send it once
-func newObfuscatedStream(stream io.ReadWriteCloser, enc tgcrypt.Obfuscator, nonce *tgcrypt.Nonce, protocol uint8) *obfuscatedStream {
+func newObfuscatedStream(stream io.ReadWriteCloser, enc tgcrypt_encryption.Obfuscator, nonce *tgcrypt_encryption.Nonce, protocol uint8) *obfuscatedStream {
 	return &obfuscatedStream{
 		r:        sync.Mutex{},
 		w:        sync.Mutex{},

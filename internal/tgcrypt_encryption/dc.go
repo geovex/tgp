@@ -1,6 +1,6 @@
-package tgcrypt
+package tgcrypt_encryption
 
-// Context for obfuscation proxy-DC connection
+// Context for obfuscation this-DC connection
 type DcCtx struct {
 	// Nonce is generated for this-dc connection
 	Nonce    Nonce

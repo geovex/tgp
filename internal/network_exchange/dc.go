@@ -1,4 +1,4 @@
-package obfuscated
+package network_exchange
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"net"
 
 	"github.com/geovex/tgp/internal/maplist"
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 	"golang.org/x/net/proxy"
 )
 
@@ -205,7 +205,7 @@ func LoginDC(sock io.ReadWriteCloser, protocol uint8) *rawStream {
 	return newRawStream(sock, protocol)
 }
 
-func ObfuscateDC(sock io.ReadWriteCloser, ctx *tgcrypt.DcCtx) *obfuscatedStream {
+func ObfuscateDC(sock io.ReadWriteCloser, ctx *tgcrypt_encryption.DcCtx) *obfuscatedStream {
 	// TODO: handle negative dc
 	return newObfuscatedStream(sock, ctx, &ctx.Nonce, ctx.Protocol)
 }

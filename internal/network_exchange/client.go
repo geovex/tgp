@@ -1,4 +1,4 @@
-package obfuscated
+package network_exchange
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 
 	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/stats"
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
 type ClientHandler struct {
@@ -18,7 +18,7 @@ type ClientHandler struct {
 	config      *config.Config
 	// available after handshake
 	user      *config.User
-	cliCtx    *tgcrypt.ObfCtx
+	cliCtx    *tgcrypt_encryption.ObfCtx
 	cliStream dataStream
 }
 
@@ -33,7 +33,7 @@ func NewClient(cfg *config.Config, statsHandle *stats.StatsHandle, client net.Co
 func (o *ClientHandler) HandleClient() (err error) {
 	defer o.client.Close()
 	defer o.statsHandle.Close()
-	var initialPacket tgcrypt.Nonce
+	var initialPacket tgcrypt_encryption.Nonce
 	n, err := io.ReadFull(o.client, initialPacket[:])
 	if err != nil {
 		if o.config.GetHost() != nil {
@@ -43,7 +43,7 @@ func (o *ClientHandler) HandleClient() (err error) {
 		}
 	}
 	//check for tls in handshake
-	if bytes.Equal(initialPacket[0:len(tgcrypt.FakeTlsHeader)], tgcrypt.FakeTlsHeader[:]) {
+	if bytes.Equal(initialPacket[0:len(tgcrypt_encryption.FakeTlsHeader)], tgcrypt_encryption.FakeTlsHeader[:]) {
 		return o.handleFakeTls(initialPacket)
 	} else {
 		return o.handleObfClient(initialPacket)
@@ -93,7 +93,7 @@ func (o *ClientHandler) processWithConfig() (err error) {
 		}
 		var dcStream dataStream
 		if o.user.Obfuscate != nil && *o.user.Obfuscate {
-			dcCtx := tgcrypt.DcCtxNew(o.cliCtx.Dc, o.cliCtx.Protocol)
+			dcCtx := tgcrypt_encryption.DcCtxNew(o.cliCtx.Dc, o.cliCtx.Protocol)
 			dcStream = ObfuscateDC(sock, dcCtx)
 			o.statsHandle.SetState(stats.Obfuscated)
 		} else {
@@ -111,14 +111,14 @@ func (o *ClientHandler) processWithConfig() (err error) {
 		if err != nil {
 			return err
 		}
-		mp, err := mpm.connect(o.cliCtx.Dc, o.client, o.cliCtx.Protocol, adTag)
+		middleProxyStream, err := mpm.connect(o.cliCtx.Dc, o.client, o.cliCtx.Protocol, adTag)
 		if err != nil {
 			return err
 		}
-		defer mp.CloseStream()
+		defer middleProxyStream.CloseStream()
 		clientMsgStream := newMsgStream(o.cliStream)
 		o.statsHandle.SetState(stats.Middleproxy)
-		transceiveMsg(clientMsgStream, mp)
+		transceiveMsg(clientMsgStream, middleProxyStream)
 	}
 	return nil
 }

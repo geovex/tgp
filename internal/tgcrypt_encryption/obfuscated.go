@@ -1,4 +1,4 @@
-package tgcrypt
+package tgcrypt_encryption
 
 import (
 	"crypto/sha256"
@@ -9,14 +9,14 @@ import (
 // Context for client-This obfuscation
 type ObfCtx struct {
 	// Nonce received from client
-	Nonce    Nonce
+	Nonce Nonce
 	// Secret from config
 	Secret   *Secret
 	Protocol uint8
 	Dc       int16
 	Random   [2]byte
 	// Obfuscastor context for client-this connection
-	obf      Obfuscator
+	obf Obfuscator
 }
 
 const (

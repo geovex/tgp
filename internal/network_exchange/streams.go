@@ -1,13 +1,19 @@
-package obfuscated
+package network_exchange
 
 import (
 	"io"
 	"sync"
 )
 
+// Describes common logic for byte streams
+// Basically stream can be obfuscated->raw or obfuscated->obfuscated. Both works
+// with telegram CDN
 type dataStream interface {
 	io.ReadWriteCloser
+	// Writes necessary data that describes protocol
 	Initiate() error
+	// Returns one of for tg protocol values:
+	// Abridged, Intermediate, Padded, Full
 	Protocol() uint8
 }
 

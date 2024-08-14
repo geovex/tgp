@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/BurntSushi/toml"
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
 func ReadConfig(path string) (*Config, error) {
@@ -92,8 +92,8 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 		for name, data := range *parsed.Users {
 			var u User
 			// user defined by it's secret
-			utype := md.Type("users", name)
-			if utype == "String" {
+			userRecordType := md.Type("users", name)
+			if userRecordType == "String" {
 				var secret string
 				err := md.PrimitiveDecode(data, &secret)
 				if err != nil {
@@ -108,12 +108,9 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 					Socks5_user: parsed.Socks5_user,
 					Socks5_pass: parsed.Socks5_pass,
 				}
-			} else if utype == "Hash" { // user fully defined
+			} else if userRecordType == "Hash" { // user fully defined
 				var pu parsedUserPrimitive
 				err := md.PrimitiveDecode(data, &pu)
-				if err != nil {
-					return nil, err
-				}
 				if err != nil {
 					return nil, err
 				}
@@ -127,7 +124,7 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 					Socks5_pass: pu.Socks5_pass,
 				}
 			} else {
-				return nil, fmt.Errorf("unknown type for user %s: %s ", name, utype)
+				return nil, fmt.Errorf("unknown type for user %s: %s ", name, userRecordType)
 			}
 			users.Users[name] = &u
 		}
@@ -161,8 +158,8 @@ func checkUser(user *User) error {
 			if err != nil {
 				return fmt.Errorf("can't parse adtag: %w", err)
 			}
-			if len(adTag) != tgcrypt.AddTagLength {
-				return fmt.Errorf("adtag must be %d bytes", tgcrypt.AddTagLength)
+			if len(adTag) != tgcrypt_encryption.AddTagLength {
+				return fmt.Errorf("adtag must be %d bytes", tgcrypt_encryption.AddTagLength)
 			}
 		}
 	}

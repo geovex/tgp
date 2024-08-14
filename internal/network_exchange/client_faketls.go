@@ -1,4 +1,4 @@
-package obfuscated
+package network_exchange
 
 import (
 	"bytes"
@@ -14,24 +14,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
-func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (err error) {
-	var tlsHandshake [tgcrypt.FakeTlsHandshakeLen]byte
-	copy(tlsHandshake[:tgcrypt.FakeTlsHandshakeLen], initialPacket[:])
-	_, err = io.ReadFull(o.client, tlsHandshake[tgcrypt.NonceSize:])
-	var clientCtx *tgcrypt.FakeTlsCtx
+func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt_encryption.NonceSize]byte) (err error) {
+	var tlsHandshake [tgcrypt_encryption.FakeTlsHandshakeLen]byte
+	copy(tlsHandshake[:tgcrypt_encryption.FakeTlsHandshakeLen], initialPacket[:])
+	_, err = io.ReadFull(o.client, tlsHandshake[tgcrypt_encryption.NonceSize:])
+	var clientCtx *tgcrypt_encryption.FakeTlsCtx
 	if err != nil {
 		return
 	}
 	for u := range o.config.IterateUsers() {
 		runtime.Gosched()
-		userSecret, err := tgcrypt.NewSecretHex(u.Secret)
+		userSecret, err := tgcrypt_encryption.NewSecretHex(u.Secret)
 		if err != nil {
 			continue
 		}
-		clientCtx, err = tgcrypt.FakeTlsCtxFromTlsHeader(tlsHandshake, userSecret)
+		clientCtx, err = tgcrypt_encryption.FakeTlsCtxFromTlsHeader(tlsHandshake, userSecret)
 		if err != nil {
 			continue
 		} else {
@@ -49,7 +49,7 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt.NonceSize]byte) (er
 	return err
 }
 
-func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx) error {
+func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt_encryption.FakeTlsCtx) error {
 	if !o.config.GetIgnoreTimestamp() {
 		// checking timestamp
 		skew := time.Now().UTC().Unix() - int64(cryptClient.Timestamp)
@@ -111,13 +111,13 @@ func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx) error
 	if err != nil {
 		return err
 	}
-	fts := newFakeTlsStream(o.client, cryptClient)
-	var simpleHeader [tgcrypt.NonceSize]byte
+	fts := newFakeTlsStream(o.client)
+	var simpleHeader [tgcrypt_encryption.NonceSize]byte
 	_, err = io.ReadFull(fts, simpleHeader[:])
 	if err != nil {
 		return fmt.Errorf("can't read inner simple header: %w", err)
 	}
-	o.cliCtx, err = tgcrypt.ObfCtxFromNonce(simpleHeader, cryptClient.Secret)
+	o.cliCtx, err = tgcrypt_encryption.ObfCtxFromNonce(simpleHeader, cryptClient.Secret)
 	if err != nil {
 		return fmt.Errorf("can't create simple ctx from inner simple header: %w", err)
 	}
@@ -133,7 +133,7 @@ type fakeTlsStream struct {
 	readerTail          []byte
 }
 
-func newFakeTlsStream(client io.ReadWriteCloser, crypt *tgcrypt.FakeTlsCtx) *fakeTlsStream {
+func newFakeTlsStream(client io.ReadWriteCloser) *fakeTlsStream {
 	return &fakeTlsStream{
 		readlock:   sync.Mutex{},
 		writelock:  sync.Mutex{},

@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/geovex/tgp/internal/config"
-	o "github.com/geovex/tgp/internal/obfuscated"
+	o "github.com/geovex/tgp/internal/network_exchange"
 	"github.com/geovex/tgp/internal/stats"
 )
 

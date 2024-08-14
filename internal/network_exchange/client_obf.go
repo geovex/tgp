@@ -1,25 +1,25 @@
-package obfuscated
+package network_exchange
 
 import (
 	"fmt"
 	"runtime"
 
 	"github.com/geovex/tgp/internal/config"
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
-func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt.NonceSize]byte) (err error) {
+func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt_encryption.NonceSize]byte) (err error) {
 	var user *string
 	for u := range o.config.IterateUsers() {
 		runtime.Gosched()
-		if tgcrypt.IsWrongNonce(initialPacket) {
+		if tgcrypt_encryption.IsWrongNonce(initialPacket) {
 			continue
 		}
-		userSecret, err := tgcrypt.NewSecretHex(u.Secret)
+		userSecret, err := tgcrypt_encryption.NewSecretHex(u.Secret)
 		if err != nil {
 			continue
 		}
-		o.cliCtx, err = tgcrypt.ObfCtxFromNonce(initialPacket, userSecret)
+		o.cliCtx, err = tgcrypt_encryption.ObfCtxFromNonce(initialPacket, userSecret)
 		if err != nil {
 			continue
 		}

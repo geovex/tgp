@@ -1,4 +1,4 @@
-package tgcrypt
+package tgcrypt_encryption
 
 import (
 	"crypto/aes"
@@ -50,6 +50,7 @@ type RpcNonce [RpcNonceLen]byte
 
 const AddTagLength = 16
 
+// Set of block ciphers for this-middle_proxy connection
 type MpCtx struct {
 	reader, writer cipher.BlockMode
 }
@@ -72,6 +73,7 @@ func (m *MpCtx) BlockSize() int {
 	return m.reader.BlockSize()
 }
 
+// this-middle_proxy encryption context
 type MiddleCtx struct {
 	CliNonce RpcNonce
 	AdTag    []byte

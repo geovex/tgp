@@ -1,4 +1,4 @@
-package obfuscated
+package network_exchange
 
 import (
 	"encoding/binary"
@@ -6,7 +6,7 @@ import (
 	"hash/crc32"
 	"io"
 
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
 func (s *msgStream) ReadCliMsg() (m *message, err error) {
@@ -15,7 +15,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 	var seq uint32
 	var msgLen uint32
 	switch s.sock.Protocol() {
-	case tgcrypt.Abridged:
+	case tgcrypt_encryption.Abridged:
 		var l [4]byte
 		// read length
 		_, err = io.ReadFull(s.sock, l[:1])
@@ -39,7 +39,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		msgLen = msgLen * 4
 		// read message
 		msgbuf = make([]byte, msgLen)
-		if msgLen > tgcrypt.MaxPayloadSize {
+		if msgLen > tgcrypt_encryption.MaxPayloadSize {
 			err = fmt.Errorf("message too big: %d", msgLen)
 			return
 		}
@@ -47,7 +47,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		if err != nil {
 			return
 		}
-	case tgcrypt.Intermediate, tgcrypt.Padded:
+	case tgcrypt_encryption.Intermediate, tgcrypt_encryption.Padded:
 		// read length
 		var l [4]byte
 		_, err = io.ReadFull(s.sock, l[:])
@@ -60,7 +60,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 			msgLen &= 0x7fffffff
 		}
 		// read message
-		if msgLen > tgcrypt.MaxPayloadSize {
+		if msgLen > tgcrypt_encryption.MaxPayloadSize {
 			err = fmt.Errorf("message too big: %d", msgLen)
 			return
 		}
@@ -69,7 +69,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		if err != nil {
 			return
 		}
-	case tgcrypt.Full:
+	case tgcrypt_encryption.Full:
 		// read length
 		var l [4]byte
 		_, err = io.ReadFull(s.sock, l[:])
@@ -82,7 +82,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 			msgLen &= 0x7fffffff
 		}
 		// read message
-		if msgLen > tgcrypt.MaxPayloadSize+12 {
+		if msgLen > tgcrypt_encryption.MaxPayloadSize+12 {
 			err = fmt.Errorf("message too big: %d", msgLen)
 			return
 		}
@@ -114,7 +114,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 func (s *msgStream) WriteCliMsg(m *message) (err error) {
 	sendmsg := make([]byte, 0, len(m.data)+20)
 	if m.quickack {
-		if s.sock.Protocol() == tgcrypt.Abridged {
+		if s.sock.Protocol() == tgcrypt_encryption.Abridged {
 			sendmsg = []byte{m.data[3], m.data[2], m.data[1], m.data[0]}
 			fmt.Printf("client write quickack abridged %v\n", sendmsg[:4])
 		} else {
@@ -125,7 +125,7 @@ func (s *msgStream) WriteCliMsg(m *message) (err error) {
 		return
 	}
 	switch s.sock.Protocol() {
-	case tgcrypt.Abridged:
+	case tgcrypt_encryption.Abridged:
 		l := uint32(len(m.data))
 		if l%4 != 0 {
 			return fmt.Errorf("message size not multiple of 4")
@@ -138,10 +138,10 @@ func (s *msgStream) WriteCliMsg(m *message) (err error) {
 			sendmsg = append(sendmsg, byte(l))
 		}
 		sendmsg = append(sendmsg, m.data...)
-	case tgcrypt.Intermediate, tgcrypt.Padded:
+	case tgcrypt_encryption.Intermediate, tgcrypt_encryption.Padded:
 		sendmsg = binary.LittleEndian.AppendUint32(sendmsg, uint32(len(m.data)))
 		sendmsg = append(sendmsg, m.data...)
-	case tgcrypt.Full:
+	case tgcrypt_encryption.Full:
 		sendmsg = make([]byte, 0, len(m.data)+12)
 		sendmsg = binary.LittleEndian.AppendUint32(sendmsg, uint32(len(m.data)))
 		sendmsg = binary.LittleEndian.AppendUint32(sendmsg, m.seq)

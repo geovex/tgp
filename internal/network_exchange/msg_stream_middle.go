@@ -1,4 +1,4 @@
-package obfuscated
+package network_exchange
 
 import (
 	"bytes"
@@ -7,16 +7,16 @@ import (
 	"hash/crc32"
 	"io"
 
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
 type blockStream struct {
 	sock              dataStream
-	ctx               *tgcrypt.MpCtx
+	ctx               *tgcrypt_encryption.MpCtx
 	readBuf, writeBuf []byte
 }
 
-func newBlockStream(sock dataStream, ctx *tgcrypt.MpCtx) *blockStream {
+func newBlockStream(sock dataStream, ctx *tgcrypt_encryption.MpCtx) *blockStream {
 	return &blockStream{
 		sock:     sock,
 		ctx:      ctx,
@@ -30,7 +30,7 @@ func (s *blockStream) Initiate() error {
 }
 
 func (s *blockStream) Protocol() uint8 {
-	return tgcrypt.Full
+	return tgcrypt_encryption.Full
 }
 
 func (s *blockStream) Read(b []byte) (n int, err error) {
@@ -77,8 +77,8 @@ func newMsgBlockStream(stream dataStream, padding int) *msgBlockStream {
 }
 
 func (s *msgBlockStream) ReadMsg() (m *message, err error) {
-	l := tgcrypt.PaddingFiller
-	for bytes.Equal(l[:], tgcrypt.PaddingFiller[:]) {
+	l := tgcrypt_encryption.PaddingFiller
+	for bytes.Equal(l[:], tgcrypt_encryption.PaddingFiller[:]) {
 		_, err = io.ReadFull(s.bs, l[:])
 		if err != nil {
 			err = fmt.Errorf("failed to read message length: %w", err)
@@ -86,7 +86,7 @@ func (s *msgBlockStream) ReadMsg() (m *message, err error) {
 		}
 	}
 	msgLen := int(binary.LittleEndian.Uint32(l[:]))
-	if msgLen < 12 || msgLen > tgcrypt.MaxPayloadSize+12 {
+	if msgLen < 12 || msgLen > tgcrypt_encryption.MaxPayloadSize+12 {
 		err = fmt.Errorf("invalid message length: %d", msgLen)
 		return
 	}
@@ -126,7 +126,7 @@ func (s *msgBlockStream) WriteMsg(m *message) (err error) {
 	padlen := -(-len(buf) % s.padding)
 	padbuf := []byte{}
 	for len(padbuf) < padlen {
-		padbuf = append(padbuf, tgcrypt.PaddingFiller[:]...)
+		padbuf = append(padbuf, tgcrypt_encryption.PaddingFiller[:]...)
 	}
 	buf = append(buf, padbuf[:padlen]...)
 	_, err = s.bs.Write(buf)

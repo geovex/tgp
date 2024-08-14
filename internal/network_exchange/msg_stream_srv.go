@@ -1,4 +1,4 @@
-package obfuscated
+package network_exchange
 
 import (
 	"encoding/binary"
@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
+// Basically unused, designed for message-based transceiving not involving
+// middleproxy.used in transceiveMsgStreams
 func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 	switch s.sock.Protocol() {
-	case tgcrypt.Abridged:
+	case tgcrypt_encryption.Abridged:
 		var l [4]byte
 		// read length
 		_, err = io.ReadFull(s.sock, l[:1])
@@ -35,7 +37,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 		}
 		msgLen = msgLen * 4
 		// read message
-		if msgLen > tgcrypt.MaxPayloadSize {
+		if msgLen > tgcrypt_encryption.MaxPayloadSize {
 			err = fmt.Errorf("message too big: %d", msgLen)
 			return
 		}
@@ -46,7 +48,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 		}
 		m = &message{msg, false, 0}
 		return
-	case tgcrypt.Intermediate, tgcrypt.Padded:
+	case tgcrypt_encryption.Intermediate, tgcrypt_encryption.Padded:
 		// read length
 		var l [4]byte
 		_, err = io.ReadFull(s.sock, l[:])
@@ -60,7 +62,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 			return
 		}
 		// read message
-		if msgLen > tgcrypt.MaxPayloadSize {
+		if msgLen > tgcrypt_encryption.MaxPayloadSize {
 			err = fmt.Errorf("message too big: %d", msgLen)
 			return
 		}
@@ -79,7 +81,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 func (s *msgStream) WriteSrvMsg(m *message) (err error) {
 	sendmsg := make([]byte, 0, len(m.data)+20)
 	switch s.sock.Protocol() {
-	case tgcrypt.Abridged:
+	case tgcrypt_encryption.Abridged:
 		l := uint32(len(m.data))
 		if l%4 != 0 {
 			return fmt.Errorf("message size not multiple of 4")
@@ -97,7 +99,7 @@ func (s *msgStream) WriteSrvMsg(m *message) (err error) {
 			sendmsg = []byte{sendmsg[3], sendmsg[2], sendmsg[1], sendmsg[0]}
 			fmt.Printf("server write quickack abridged %v\n", sendmsg)
 		}
-	case tgcrypt.Intermediate, tgcrypt.Padded:
+	case tgcrypt_encryption.Intermediate, tgcrypt_encryption.Padded:
 		sendmsg = binary.LittleEndian.AppendUint32(sendmsg, uint32(len(m.data)))
 		sendmsg = append(sendmsg, m.data...)
 		if m.quickack {

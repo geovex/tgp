@@ -1,11 +1,11 @@
-package obfuscated
+package network_exchange
 
 import (
 	"fmt"
 	"io"
 	"sync"
 
-	"github.com/geovex/tgp/internal/tgcrypt"
+	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
 type rawStream struct {
@@ -28,13 +28,13 @@ func (s *rawStream) Initiate() error {
 	defer s.w.Unlock()
 	var header []byte
 	switch s.protocol {
-	case tgcrypt.Abridged:
-		header = []byte{tgcrypt.Abridged}
-	case tgcrypt.Intermediate:
-		header = []byte{tgcrypt.Intermediate, tgcrypt.Intermediate, tgcrypt.Intermediate, tgcrypt.Intermediate}
-	case tgcrypt.Padded:
-		header = []byte{tgcrypt.Padded, tgcrypt.Padded, tgcrypt.Padded, tgcrypt.Padded}
-	case tgcrypt.Full: // do nothing for Full protocol
+	case tgcrypt_encryption.Abridged:
+		header = []byte{tgcrypt_encryption.Abridged}
+	case tgcrypt_encryption.Intermediate:
+		header = []byte{tgcrypt_encryption.Intermediate, tgcrypt_encryption.Intermediate, tgcrypt_encryption.Intermediate, tgcrypt_encryption.Intermediate}
+	case tgcrypt_encryption.Padded:
+		header = []byte{tgcrypt_encryption.Padded, tgcrypt_encryption.Padded, tgcrypt_encryption.Padded, tgcrypt_encryption.Padded}
+	case tgcrypt_encryption.Full: // do nothing for Full protocol
 		return nil
 	default:
 		return fmt.Errorf("unknown protocol: %d", s.protocol)

@@ -1,4 +1,4 @@
-package tgcrypt
+package tgcrypt_encryption
 
 import (
 	"testing"
