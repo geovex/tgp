@@ -111,15 +111,14 @@ func (c *Config) GetUserSecret(user string) (string, error) {
 	}
 }
 
-func (c *Config) IterateUsers() chan *User {
-	result := make(chan *User)
-	go func() {
-		defer close(result)
+func (c *Config) IterateUsers() func(func(*User) bool) {
+	return func(fn func(*User) bool) {
 		for _, u := range c.users.Users {
-			result <- u
+			if fn(u) {
+				return
+			}
 		}
-	}()
-	return result
+	}
 }
 
 func (c *Config) GetDefaultSocks() (url, user, pass *string) {
