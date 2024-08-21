@@ -3,11 +3,11 @@ package network_exchange
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 
 	"github.com/geovex/tgp/internal/maplist"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
-	"golang.org/x/exp/rand"
 	"golang.org/x/net/proxy"
 )
 
@@ -40,7 +40,7 @@ func getDcAddr(dc int16) (ipv4, ipv6 string, err error) {
 	if dc < 1 || dc > dcMaxIdx {
 		//return "", "", fmt.Errorf("invalid dc number %d", dc)
 		//instead return random dc
-		dc = rand.Intn(dcMaxIdx) + 1
+		dc = int16(rand.Intn(int(dcMaxIdx)) + 1)
 	}
 	ipv4, _ = dc_ip4.GetRandom(dc)
 	ipv6, _ = dc_ip6.GetRandom(dc)
