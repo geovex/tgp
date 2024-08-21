@@ -7,6 +7,7 @@ import (
 
 	"github.com/geovex/tgp/internal/maplist"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"golang.org/x/exp/rand"
 	"golang.org/x/net/proxy"
 )
 
@@ -37,11 +38,14 @@ func getDcAddr(dc int16) (ipv4, ipv6 string, err error) {
 		dc = -dc
 	}
 	if dc < 1 || dc > dcMaxIdx {
-		return "", "", fmt.Errorf("invalid dc number %d", dc)
+		//return "", "", fmt.Errorf("invalid dc number %d", dc)
+		//instead return random dc
+		dc = rand.Intn(dcMaxIdx) + 1
 	}
 	ipv4, _ = dc_ip4.GetRandom(dc)
 	ipv6, _ = dc_ip6.GetRandom(dc)
 	if ipv4 == "" && ipv6 == "" {
+		// TODO may be panic here?
 		return "", "", fmt.Errorf("invalid dc number %d", dc)
 	}
 	return ipv4, ipv6, nil
@@ -59,6 +63,8 @@ type DCConnector interface {
 type DcDirectConnector struct {
 	allowIPv6 bool
 }
+
+var _ DCConnector = &DcDirectConnector{}
 
 // creates a new DcDirectConnector
 func NewDcDirectConnector(allowIPv6 bool) *DcDirectConnector {
@@ -100,6 +106,8 @@ type DcSocksConnector struct {
 	pass      *string
 	socks5    string
 }
+
+var _ DCConnector = &DcSocksConnector{}
 
 // Create a new DcSocksConnector
 func NewDcSocksConnector(allowIPv6 bool, socks5 string, user, pass *string) *DcSocksConnector {
@@ -201,10 +209,12 @@ func setNoDelay(c net.Conn) {
 	}
 }
 
+// do not reobfuscate connection to dc (there are really no need for it)
 func LoginDC(sock io.ReadWriteCloser, protocol uint8) *rawStream {
 	return newRawStream(sock, protocol)
 }
 
+// in case you need to obfuscate connection to dc, you can do it
 func ObfuscateDC(sock io.ReadWriteCloser, ctx *tgcrypt_encryption.DcCtx) *obfuscatedStream {
 	// TODO: handle negative dc
 	return newObfuscatedStream(sock, ctx, &ctx.Nonce, ctx.Protocol)
