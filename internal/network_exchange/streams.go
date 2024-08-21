@@ -5,9 +5,9 @@ import (
 	"sync"
 )
 
-// Describes common logic for byte streams
+// Describes common logic for byte streams (usually to DC)
 // Basically stream can be obfuscated->raw or obfuscated->obfuscated. Both works
-// with telegram CDN
+// with telegram DC
 type dataStream interface {
 	io.ReadWriteCloser
 	// Writes necessary data that describes protocol

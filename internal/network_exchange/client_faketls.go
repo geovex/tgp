@@ -85,7 +85,7 @@ func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt_encryption.FakeTl
 	toClientHello = append(toClientHello, tlsExtensions...)
 	toClientHelloPkt := make([]byte, 0, 2000)
 	toClientHelloPkt = append(toClientHelloPkt,
-		0x16,       // handhake record
+		0x16,       // handshake record
 		0x03, 0x03, // protocol version 3,3 means tls 1.2
 	)
 	toClientHelloPkt = append(toClientHelloPkt, binary.BigEndian.AppendUint16(nil, uint16(len(toClientHello)+4))...)
@@ -132,6 +132,10 @@ type fakeTlsStream struct {
 	client              io.ReadWriteCloser
 	readerTail          []byte
 }
+
+// faketls stream is only underlying transport for obfuscated stream, so i's
+// not implementing dataStream
+var _ io.ReadWriteCloser = &fakeTlsStream{}
 
 func newFakeTlsStream(client io.ReadWriteCloser) *fakeTlsStream {
 	return &fakeTlsStream{
@@ -192,12 +196,13 @@ func (f *fakeTlsStream) Read(b []byte) (n int, err error) {
 func (f *fakeTlsStream) Write(b []byte) (n int, err error) {
 	f.writelock.Lock()
 	defer f.writelock.Unlock()
-	i := 0
+	buf_pos := 0
 	const chunkSize = 1 << 14 // mtproto has 16384 + 24
-	for i < len(b) {
-		rest := b[i:]
+	for buf_pos < len(b) {
+		rest := b[buf_pos:]
 		var transmitlen uint16
 		if len(rest) > chunkSize {
+			// TODO: randomize amd pad chunk size to hide encryption even more
 			transmitlen = chunkSize
 		} else {
 			transmitlen = uint16(len(rest))
@@ -208,9 +213,9 @@ func (f *fakeTlsStream) Write(b []byte) (n int, err error) {
 		buf = append(buf, rest[:transmitlen]...)
 		_, err = f.client.Write(buf)
 		if err != nil {
-			return i, err
+			return buf_pos, err
 		}
-		i += int(transmitlen)
+		buf_pos += int(transmitlen)
 	}
 	return len(b), nil
 }

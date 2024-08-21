@@ -14,6 +14,8 @@ type rawStream struct {
 	stream   io.ReadWriteCloser
 }
 
+var _ dataStream = &rawStream{}
+
 func newRawStream(stream io.ReadWriteCloser, protocol uint8) *rawStream {
 	return &rawStream{
 		r:        sync.Mutex{},

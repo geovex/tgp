@@ -24,6 +24,7 @@ socks5 = ""
 adtag = "00000000000000000000000000000000"
 `
 
+// TODO add option to randomize socks password (for TOR)
 type parsedConfig struct {
 	Listen_Url       toml.Primitive
 	Secret           *string
