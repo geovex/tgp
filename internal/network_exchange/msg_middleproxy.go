@@ -208,7 +208,7 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 	fullmsg = append(fullmsg, tgcrypt_encryption.RpcProxyReqTag[:]...)
 	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, flags)
 	fullmsg = append(fullmsg, m.connId[:]...)
-	// TODO: option for obfuscation
+	// TODO: option for obfuscation of client IP
 	ip6 := m.clientAddr.Addr().As16()
 	if m.clientAddr.Addr().Is4() {
 		ip6[10] = 0xff
