@@ -40,7 +40,7 @@ func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt_encryption.NonceS
 	u, err = o.config.GetUser(*user)
 	o.user = &u
 	if err != nil {
-		panic("user found, but GetUser not")
+		panic("user found, but GetUser failed")
 	}
 	o.cliStream = newObfuscatedStream(o.client, o.cliCtx, nil, o.cliCtx.Protocol)
 	err = o.processWithConfig()

@@ -3,6 +3,7 @@ package network_exchange
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -36,11 +37,7 @@ func (o *ClientHandler) HandleClient() (err error) {
 	var initialPacket tgcrypt_encryption.Nonce
 	n, err := io.ReadFull(o.client, initialPacket[:])
 	if err != nil {
-		if o.config.GetHost() != nil {
-			return o.handleFallBack(initialPacket[:n])
-		} else {
-			return fmt.Errorf("failed to read initial packet: %w", err)
-		}
+		return o.handleFallBack(initialPacket[:n])
 	}
 	//check for tls in handshake
 	if bytes.Equal(initialPacket[0:len(tgcrypt_encryption.FakeTlsHeader)], tgcrypt_encryption.FakeTlsHeader[:]) {
@@ -50,11 +47,13 @@ func (o *ClientHandler) HandleClient() (err error) {
 	}
 }
 
+var errNoFallbackHost = errors.New("no fallback host")
+
 // redirect connection to fallback host in case of failed authentication
 func (o *ClientHandler) handleFallBack(initialPacket []byte) (err error) {
 	defer o.client.Close()
 	if o.config.GetHost() == nil {
-		return fmt.Errorf("no fall back host")
+		return errNoFallbackHost
 	}
 	o.statsHandle.SetState(stats.Fallback)
 	fmt.Printf("redirect conection to fake host\n")
