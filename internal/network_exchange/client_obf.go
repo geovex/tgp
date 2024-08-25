@@ -38,10 +38,10 @@ func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt_encryption.NonceS
 	//connect to dc
 	var u config.User
 	u, err = o.config.GetUser(*user)
-	o.user = &u
 	if err != nil {
 		panic("user found, but GetUser failed")
 	}
+	o.user = &u
 	o.cliStream = newObfuscatedStream(o.client, o.cliCtx, nil, o.cliCtx.Protocol)
 	err = o.processWithConfig()
 	fmt.Printf("Client disconnected %s\n", o.user.Name)
