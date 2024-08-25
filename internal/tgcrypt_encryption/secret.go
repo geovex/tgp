@@ -31,6 +31,16 @@ func NewSecretHex(secret string) (*Secret, error) {
 	return NewSecret(secretBytes)
 }
 
+type ErrSecretLength struct {
+	length int
+}
+
+var _ error = &ErrSecretLength{}
+
+func (e ErrSecretLength) Error() string {
+	return fmt.Sprintf("incorrect secret length: %d", e.length)
+}
+
 // Generate secret from byte array
 func NewSecret(secret []byte) (*Secret, error) {
 	switch {
@@ -53,6 +63,6 @@ func NewSecret(secret []byte) (*Secret, error) {
 			Fakehost:  string(secret[simpleSecretLen+1:]),
 		}, nil
 	default:
-		return nil, fmt.Errorf("incorrect secret length: %d", len(secret))
+		return nil, &ErrSecretLength{length: len(secret)}
 	}
 }

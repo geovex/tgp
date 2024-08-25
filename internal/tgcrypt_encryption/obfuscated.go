@@ -19,12 +19,34 @@ type ObfCtx struct {
 	obf Obfuscator
 }
 
+var _ Obfuscator = &ObfCtx{}
+
 const (
 	Abridged     = 0xef
 	Intermediate = 0xee //0xeeeeeeee
 	Padded       = 0xdd //0xdddddddd
 	Full         = 0
 )
+
+type ErrInvalidProtocol struct {
+	value byte
+}
+
+var _ error = &ErrInvalidProtocol{}
+
+func (ip ErrInvalidProtocol) Error() string {
+	return fmt.Sprintf("invalid protocol %x", ip.value)
+}
+
+type ErrInvalidProtocolFields struct {
+	values [4]byte
+}
+
+var _ error = &ErrInvalidProtocolFields{}
+
+func (ipf ErrInvalidProtocolFields) Error() string {
+	return fmt.Sprintf("invalid protocol fields %x %x %x %x", ipf.values[0], ipf.values[1], ipf.values[2], ipf.values[3])
+}
 
 // Generate client-this encryption context
 func ObfCtxFromNonce(header Nonce, secret *Secret) (c *ObfCtx, err error) {
@@ -56,10 +78,10 @@ func ObfCtxFromNonce(header Nonce, secret *Secret) (c *ObfCtx, err error) {
 	case Abridged, Intermediate, Padded:
 		break
 	default:
-		return nil, fmt.Errorf("invalid protocol %d", protocol)
+		return nil, &ErrInvalidProtocol{value: protocol}
 	}
 	if buf[57] != protocol || buf[58] != protocol || buf[59] != protocol {
-		return nil, fmt.Errorf("invalid protocol fields %d %d %d %d", buf[56], buf[57], buf[58], buf[59])
+		return nil, &ErrInvalidProtocolFields{values: [4]byte{buf[56], buf[57], buf[58], buf[59]}}
 	}
 	dc := int16(binary.LittleEndian.Uint16(buf[60:62]))
 	var random [2]byte

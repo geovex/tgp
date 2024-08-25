@@ -5,7 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
+	"errors"
 )
 
 var FakeTlsHeader = [...]byte{
@@ -48,7 +48,7 @@ func FakeTlsCtxFromTlsHeader(header FakeTlsHandshake, secret *Secret) (c *FakeTl
 	digestCheck := h.Sum(nil)
 	// compare ignoring timestamp
 	if !bytes.Equal(digestCheck[:32-4], digest[:32-4]) {
-		return nil, fmt.Errorf("invalid client digest")
+		return nil, ErrInvalidDigestError
 	}
 	var timestampBuf [4]byte
 	for i := 32 - 4; i < 32; i++ {
@@ -65,3 +65,5 @@ func FakeTlsCtxFromTlsHeader(header FakeTlsHandshake, secret *Secret) (c *FakeTl
 	}
 	return c, nil
 }
+
+var ErrInvalidDigestError = errors.New("invalid client digest")
