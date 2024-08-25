@@ -158,23 +158,27 @@ func (m *MiddleProxyStream) ReadSrvMsg() (*message, error) {
 		return nil, fmt.Errorf("failed to read message: %w", err)
 	}
 	if len(msg.data) < 4 {
-		return nil, fmt.Errorf("wrong middleproxy message received")
-	} else if bytes.Equal(msg.data[:4], tgcrypt_encryption.RpcProxyAnsTag[:]) && len(msg.data) > 16 {
+		return nil, fmt.Errorf("wrong message received from middleproxy")
+	}
+	var rpcTag [4]byte
+	copy(rpcTag[:], msg.data[:4])
+	dataLen := len(msg.data)
+	if (tgcrypt_encryption.RpcProxyAnsTag == rpcTag) && dataLen > 16 {
 		newmsg := message{
 			data:     msg.data[16:],
 			quickack: false,
 		}
 		return &newmsg, nil
-	} else if bytes.Equal(msg.data[:4], tgcrypt_encryption.RpcSimpleAckTag[:]) && len(msg.data) >= 16 {
+	} else if (tgcrypt_encryption.RpcSimpleAckTag == rpcTag) && dataLen >= 16 {
 		newmsg := message{
 			data:     msg.data[12:16],
 			quickack: true,
 		}
 		return &newmsg, nil
-	} else if bytes.Equal(msg.data[:4], tgcrypt_encryption.RpcCloseExtTag[:]) {
+	} else if tgcrypt_encryption.RpcCloseExtTag == rpcTag {
 		fmt.Printf("End of middleproxy stream")
 		return nil, fmt.Errorf("end of middleproxy stream")
-	} else if bytes.Equal(msg.data[:4], tgcrypt_encryption.RpcUnknown[:]) {
+	} else if tgcrypt_encryption.RpcUnknown == rpcTag {
 		newmsg := message{
 			data: nil,
 		}
@@ -196,7 +200,8 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 	case tgcrypt_encryption.Padded:
 		flags |= tgcrypt_encryption.FlagIntermediate | tgcrypt_encryption.FlagPad
 	default:
-		return fmt.Errorf("unknown client protocol: %d", m.thisProtocol)
+		// TODO: consider panic here
+		return fmt.Errorf("unknown this protocol: %d", m.thisProtocol)
 	}
 	if msg.quickack {
 		flags |= tgcrypt_encryption.FlagQuickAck
