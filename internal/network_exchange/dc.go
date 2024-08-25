@@ -3,53 +3,11 @@ package network_exchange
 import (
 	"fmt"
 	"io"
-	"math/rand"
 	"net"
 
-	"github.com/geovex/tgp/internal/maplist"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 	"golang.org/x/net/proxy"
 )
-
-const dcMaxIdx = int16(5)
-
-var dc_ip4 = maplist.MapList[int16, string]{
-	Data: map[int16][]string{
-		1: {"149.154.175.50:443"},
-		2: {"149.154.167.51:443", "95.161.76.100:443"},
-		3: {"149.154.175.100:443"},
-		4: {"149.154.167.91:443"},
-		5: {"149.154.171.5:443"},
-	},
-}
-
-var dc_ip6 = maplist.MapList[int16, string]{
-	Data: map[int16][]string{
-		1: {"[2001:b28:f23d:f001::a]:443"},
-		2: {"[2001:67c:04e8:f002::a]:443"},
-		3: {"[2001:b28:f23d:f003::a]:443"},
-		4: {"[2001:67c:04e8:f004::a]:443"},
-		5: {"[2001:b28:f23f:f005::a]:443"},
-	},
-}
-
-func getDcAddr(dc int16) (ipv4, ipv6 string, err error) {
-	if dc < 0 {
-		dc = -dc
-	}
-	if dc < 1 || dc > dcMaxIdx {
-		//return "", "", fmt.Errorf("invalid dc number %d", dc)
-		//instead return random dc
-		dc = int16(rand.Intn(int(dcMaxIdx)) + 1)
-	}
-	ipv4, _ = dc_ip4.GetRandom(dc)
-	ipv6, _ = dc_ip6.GetRandom(dc)
-	if ipv4 == "" && ipv6 == "" {
-		// TODO may be panic here?
-		return "", "", fmt.Errorf("invalid dc number %d", dc)
-	}
-	return ipv4, ipv6, nil
-}
 
 // Connects client to the specified DC or fallback host
 type DCConnector interface {
@@ -75,7 +33,7 @@ func NewDcDirectConnector(allowIPv6 bool) *DcDirectConnector {
 
 // Connects client to the specified DC directly
 func (dcc *DcDirectConnector) ConnectDC(dc int16) (stream io.ReadWriteCloser, err error) {
-	dcAddr4, dcAddr6, err := getDcAddr(dc)
+	dcAddr4, dcAddr6, err := tgcrypt_encryption.GetDcAddr(dc)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +105,7 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (io.ReadWriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	dcAddr4, dcAddr6, err := getDcAddr(dc)
+	dcAddr4, dcAddr6, err := tgcrypt_encryption.GetDcAddr(dc)
 	if err != nil {
 		return nil, err
 	}

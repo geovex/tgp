@@ -24,7 +24,7 @@ func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt_encryption.NonceS
 			continue
 		}
 		// basic afterchecks
-		if o.cliCtx.Dc > dcMaxIdx || o.cliCtx.Dc < -dcMaxIdx || o.cliCtx.Dc == 0 {
+		if o.cliCtx.Dc > tgcrypt_encryption.DcMaxIdx || o.cliCtx.Dc < -tgcrypt_encryption.DcMaxIdx || o.cliCtx.Dc == 0 {
 			continue
 		}
 		user = &u.Name
