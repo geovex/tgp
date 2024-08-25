@@ -108,11 +108,11 @@ func (o *ClientHandler) processWithConfig() (err error) {
 		}
 		adTag, err := hex.DecodeString(*o.user.AdTag)
 		if err != nil {
-			return err
+			return fmt.Errorf("can't decode adTag (%s): %w", *o.user.AdTag, err)
 		}
 		middleProxyStream, err := mpm.connect(o.cliCtx.Dc, o.client, o.cliCtx.Protocol, adTag)
 		if err != nil {
-			return err
+			return fmt.Errorf("can't connect to middle proxy: %w", err)
 		}
 		defer middleProxyStream.CloseStream()
 		clientMsgStream := newMsgStream(o.cliStream)

@@ -56,7 +56,7 @@ func NewMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 	}
 	err := m.updateProxyList()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to update proxy list: %w", err)
 	}
 	go m.proxyListUpdateRoutine()
 	return m, nil
@@ -173,7 +173,7 @@ func (m *MiddleProxyManager) GetProxy(dc int16) (url4, url6 string, err error) {
 	url4, _ = m.middleV4.GetRandom(dc)
 	url6, _ = m.middleV6.GetRandom(dc)
 	if url4 == "" && url6 == "" {
-		return "", "", fmt.Errorf("middle proxy not found")
+		return "", "", fmt.Errorf("middle proxy not found for dc: %d", dc)
 	}
 	return url4, url6, nil
 }
