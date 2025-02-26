@@ -2,137 +2,263 @@ package network_exchange
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"hash/crc32"
-	"io"
+	"net"
+	"net/netip"
+	"sync/atomic"
+	"time"
 
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
-type blockStream struct {
-	sock              dataStream
-	ctx               *tgcrypt_encryption.MpCtx
-	readBuf, writeBuf []byte
+type MiddleProxyStream struct {
+	initiated     bool
+	closed        atomic.Bool
+	thisProtocol  uint8
+	seq           uint32
+	encryptionCtx *tgcrypt_encryption.MiddleCtx
+	// rpcType        []byte
+	// rpcKeySelector []byte
+	// rpcSchema      []byte
+	//rpcTimeStamp //not really needed after login
+	clientAddr           netip.AddrPort
+	middleProxyNonce     tgcrypt_encryption.RpcNonce
+	middleProxySock      dataStream
+	middleProxyMsgStream *msgBlockStream
+	connId               [8]byte
 }
 
-func newBlockStream(sock dataStream, ctx *tgcrypt_encryption.MpCtx) *blockStream {
-	return &blockStream{
-		sock:     sock,
-		ctx:      ctx,
-		readBuf:  []byte{},
-		writeBuf: []byte{},
+func NewMiddleProxyStream(mpStream dataStream, client, mp net.Conn, addTag []byte, clientProtocol uint8) *MiddleProxyStream {
+	// all panics heare are in case of client or mp are not actually TCP or something crasy like this
+	this2mpLocalAddr := mp.LocalAddr() // client address
+	this2mpLocalTcpAddr, ok := this2mpLocalAddr.(*net.TCPAddr)
+	if !ok {
+		panic("middle proxy connection has no local address")
+	}
+	middleProxyAddr := mp.RemoteAddr() // outbound address
+	middleProxyTcpAddr, ok := middleProxyAddr.(*net.TCPAddr)
+	if !ok {
+		panic("middle proxy connection has no remote address")
+	}
+	ctx := tgcrypt_encryption.NewMiddleCtx(this2mpLocalTcpAddr.AddrPort(), middleProxyTcpAddr.AddrPort(), addTag)
+	seq := uint32(0)
+	seq -= 2
+	cli2thisAddr := client.RemoteAddr()
+	cli2thisTcpAddr, ok := cli2thisAddr.(*net.TCPAddr)
+	if !ok {
+		panic("clientent connection has no local address")
+	}
+	return &MiddleProxyStream{
+		initiated:       false,
+		closed:          atomic.Bool{},
+		thisProtocol:    clientProtocol,
+		clientAddr:      cli2thisTcpAddr.AddrPort(),
+		seq:             seq,
+		encryptionCtx:   ctx,
+		middleProxySock: mpStream,
 	}
 }
 
-func (s *blockStream) Initiate() error {
+var _ msgStreamSrv = &MiddleProxyStream{}
+
+func (s *MiddleProxyStream) Initiate() (err error) {
+	if s.initiated {
+		return nil
+	} else {
+		return s.initiateReally()
+	}
+}
+
+// login into middle proxy
+func (m *MiddleProxyStream) initiateReally() (err error) {
+	m.initiated = true
+	fmt.Println("initiating")
+	initialMsgData := make([]byte, 0, 32)
+	initialMsgData = append(initialMsgData, tgcrypt_encryption.RpcNonceTag[:]...)
+	secret := mpm.GetSecret()
+	keySelector := secret[:4]
+	initialMsgData = append(initialMsgData, keySelector...) // key selector
+	initialMsgData = append(initialMsgData, tgcrypt_encryption.RpcCryptoAesTag[:]...)
+	timestampCli := binary.LittleEndian.AppendUint32([]byte{}, uint32((time.Now().Unix())%0x100000000))
+	initialMsgData = append(initialMsgData, timestampCli...) // crypto timestamp
+	initialMsgData = append(initialMsgData, m.encryptionCtx.CliNonce[:]...)
+	msg := &message{
+		data:     initialMsgData,
+		quickack: false,
+		seq:      m.seq,
+	}
+	middleProxyRawStream := newRawStream(m.middleProxySock, tgcrypt_encryption.Full)
+	middleProxyMsgStream := newMsgBlockStream(middleProxyRawStream, 32)
+	err = middleProxyMsgStream.WriteMsg(msg)
+	if err != nil {
+		return fmt.Errorf("failed to send initial message: %w", err)
+	}
+	m.seq++
+	msg, err = middleProxyMsgStream.ReadMsg()
+	if err != nil {
+		fmt.Printf("failed to read initial reply: %v\n", err)
+		return fmt.Errorf("failed to read initial reply: %w", err)
+	}
+	if len(msg.data) != 32 {
+		return fmt.Errorf("invalid initial reply length: %d", len(msg.data))
+	}
+	rpcType := msg.data[:4]
+	rpcKeySelector := msg.data[4:8]
+	rpcSchema := msg.data[8:12]
+	//rpcTimeStamp := reply.data[12:16]
+	copy(m.middleProxyNonce[:], msg.data[16:32])
+	// TODO: check timestamp
+	if !bytes.Equal(rpcType, tgcrypt_encryption.RpcNonceTag[:]) ||
+		!bytes.Equal(rpcKeySelector, keySelector) ||
+		!bytes.Equal(rpcSchema, tgcrypt_encryption.RpcCryptoAesTag[:]) {
+		return fmt.Errorf("invalid initial reply")
+	}
+	m.encryptionCtx.SetObf(m.middleProxyNonce[:], timestampCli, secret)
+	m.middleProxyMsgStream = newMsgBlockStream(newBlockStream(m.middleProxySock, m.encryptionCtx.Obf), 32) //m.ctx.Obf.BlockSize())
+	handshakeMsg := make([]byte, 0, 32)
+	handshakeMsg = append(handshakeMsg, tgcrypt_encryption.RpcHandShakeTag[:]...)
+	handshakeMsg = append(handshakeMsg, 0, 0, 0, 0)                //rpc flags
+	handshakeMsg = append(handshakeMsg, []byte("IPIPPRPDTIME")...) //SENDER_PID
+	handshakeMsg = append(handshakeMsg, []byte("IPIPPRPDTIME")...) //PEER_PID
+	//fmt.Println(hex.EncodeToString(handshakeMsg))
+	msg = &message{
+		data:     handshakeMsg,
+		quickack: false,
+		seq:      m.seq,
+	}
+	err = m.middleProxyMsgStream.WriteMsg(msg)
+	if err != nil {
+		return fmt.Errorf("failed to send encrypted handshake message: %w", err)
+	}
+	m.seq++
+	msg, err = m.middleProxyMsgStream.ReadMsg()
+	if err != nil {
+		fmt.Printf("failed to read encrypted handshake reply: %v\n", err)
+		return fmt.Errorf("failed to read encrypted reply: %w", err)
+	}
+	if len(msg.data) != 32 {
+		return fmt.Errorf("invalid encrypted handshake reply length: %d", len(msg.data))
+	}
+	if !bytes.Equal(msg.data[:4], tgcrypt_encryption.RpcHandShakeTag[:]) ||
+		!bytes.Equal(msg.data[20:32], []byte("IPIPPRPDTIME")) {
+		return fmt.Errorf("bad encrypted rpc handshake answer")
+	}
+	// fill rest fields
+	rand.Read(m.connId[:])
 	return nil
 }
 
-func (s *blockStream) Protocol() uint8 {
-	return tgcrypt_encryption.Full
-}
-
-func (s *blockStream) Read(b []byte) (n int, err error) {
-	if len(s.readBuf) == 0 {
-		buf := make([]byte, s.ctx.BlockSize())
-		n, err = io.ReadFull(s.sock, buf)
-		s.ctx.DecryptBlocks(buf)
-		s.readBuf = append(s.readBuf, buf[:n]...)
-	}
-	n = copy(b, s.readBuf)
-	s.readBuf = s.readBuf[n:]
-	return
-}
-
-func (s *blockStream) Write(b []byte) (n int, err error) {
-	s.writeBuf = append(s.writeBuf, b...)
-	for len(s.writeBuf) > s.ctx.BlockSize() {
-		var written int
-		s.ctx.EncryptBlocks(s.writeBuf[:s.ctx.BlockSize()])
-		written, err = s.sock.Write(s.writeBuf[:s.ctx.BlockSize()])
-		n += written
-		if err != nil {
-			return
-		}
-		s.writeBuf = s.writeBuf[s.ctx.BlockSize():]
-	}
-	return
-}
-
-func (s *blockStream) Close() error {
-	return s.sock.Close()
-}
-
-type msgBlockStream struct {
-	bs      dataStream
-	padding int
-}
-
-func newMsgBlockStream(stream dataStream, padding int) *msgBlockStream {
-	return &msgBlockStream{
-		bs:      stream,
-		padding: padding,
-	}
-}
-
-func (s *msgBlockStream) ReadMsg() (m *message, err error) {
-	l := tgcrypt_encryption.PaddingFiller
-	for bytes.Equal(l[:], tgcrypt_encryption.PaddingFiller[:]) {
-		_, err = io.ReadFull(s.bs, l[:])
-		if err != nil {
-			err = fmt.Errorf("failed to read message length: %w", err)
-			return
-		}
-	}
-	msgLen := int(binary.LittleEndian.Uint32(l[:]))
-	if msgLen < 12 || msgLen > tgcrypt_encryption.MaxPayloadSize+12 {
-		err = fmt.Errorf("invalid message length: %d", msgLen)
-		return
-	}
-	buf := make([]byte, msgLen)
-	copy(buf, l[:])
-	_, err = io.ReadFull(s.bs, buf[4:])
+func (m *MiddleProxyStream) ReadSrvMsg() (*message, error) {
+	msg, err := m.middleProxyMsgStream.ReadMsg()
 	if err != nil {
-		return
+		// filter closed stream false positives
+		if !m.closed.Load() {
+			fmt.Printf("failed to read middleproxy message: %v\n", err)
+		}
+		return nil, fmt.Errorf("failed to read message: %w", err)
 	}
-	//check crc
-	crcRecv := binary.LittleEndian.Uint32(buf[msgLen-4:])
-	crcCalc := crc32.ChecksumIEEE(buf[:msgLen-4])
-	if crcRecv != crcCalc {
-		err = fmt.Errorf("invalid message crc")
-		return
+	if len(msg.data) < 4 {
+		return nil, fmt.Errorf("wrong message received from middleproxy")
 	}
-	seq := binary.LittleEndian.Uint32(buf[4:8])
-	msg := buf[8 : msgLen-4]
-	m = &message{
-		data:     msg,
-		seq:      seq,
+	var rpcTag [4]byte
+	copy(rpcTag[:], msg.data[:4])
+	dataLen := len(msg.data)
+	if (tgcrypt_encryption.RpcProxyAnsTag == rpcTag) && dataLen > 16 {
+		newmsg := message{
+			data:     msg.data[16:],
+			quickack: false,
+		}
+		return &newmsg, nil
+	} else if (tgcrypt_encryption.RpcSimpleAckTag == rpcTag) && dataLen >= 16 {
+		newmsg := message{
+			data:     msg.data[12:16],
+			quickack: true,
+		}
+		return &newmsg, nil
+	} else if tgcrypt_encryption.RpcCloseExtTag == rpcTag {
+		fmt.Printf("End of middleproxy stream")
+		return nil, fmt.Errorf("end of middleproxy stream")
+	} else if tgcrypt_encryption.RpcUnknown == rpcTag {
+		newmsg := message{
+			data: nil,
+		}
+		return &newmsg, nil
+	} else {
+		fmt.Printf("Middleproxy message not parsed\n")
+		return nil, fmt.Errorf("middleproxy message not parsed")
+	}
+}
+
+func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
+	var flags uint32
+	flags = tgcrypt_encryption.FlagHasAdTag | tgcrypt_encryption.FlagMagic | tgcrypt_encryption.FlagExtNode2
+	switch m.thisProtocol {
+	case tgcrypt_encryption.Abridged:
+		flags |= tgcrypt_encryption.FlagAbbridged
+	case tgcrypt_encryption.Intermediate:
+		flags |= tgcrypt_encryption.FlagIntermediate
+	case tgcrypt_encryption.Padded:
+		flags |= tgcrypt_encryption.FlagIntermediate | tgcrypt_encryption.FlagPad
+	default:
+		// TODO: consider panic here
+		return fmt.Errorf("unknown this protocol: %d", m.thisProtocol)
+	}
+	if msg.quickack {
+		flags |= tgcrypt_encryption.FlagQuickAck
+	}
+	if bytes.Equal(msg.data[:8], []byte{0, 0, 0, 0, 0, 0, 0, 0}) {
+		flags |= tgcrypt_encryption.FlagNotEncrypted
+	}
+	fullmsg := make([]byte, 0, 48+len(msg.data))
+	fullmsg = append(fullmsg, tgcrypt_encryption.RpcProxyReqTag[:]...)
+	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, flags)
+	fullmsg = append(fullmsg, m.connId[:]...)
+	// TODO: option for obfuscation of client IP
+	ip6 := m.clientAddr.Addr().As16()
+	if m.clientAddr.Addr().Is4() {
+		ip6[10] = 0xff
+		ip6[11] = 0xff
+	}
+	// ip6 := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 168, 0, 1}
+	fullmsg = append(fullmsg, ip6[:]...)
+	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.encryptionCtx.MP.Port()))
+	ip6Cli := m.encryptionCtx.Out.Addr().As16()
+	if m.encryptionCtx.Out.Addr().Is4() {
+		ip6Cli[10] = 0xff
+		ip6Cli[11] = 0xff
+	}
+	//ip6Cli := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 168, 0, 1}
+	fullmsg = append(fullmsg, ip6Cli[:]...)
+	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.encryptionCtx.Out.Port()))
+	fullmsg = append(fullmsg, tgcrypt_encryption.ExtraSize[:]...)
+	fullmsg = append(fullmsg, tgcrypt_encryption.ProxyTag[:]...)
+	fullmsg = append(fullmsg, uint8(len(m.encryptionCtx.AdTag)))
+	fullmsg = append(fullmsg, m.encryptionCtx.AdTag...)
+	fullmsg = append(fullmsg, 0, 0, 0) //allign bytes
+	data := msg.data[:len(msg.data)-len(msg.data)%4]
+	fullmsg = append(fullmsg, data...) //trim padded message
+
+	wrappedMsg := message{
+		data:     fullmsg,
 		quickack: false,
+		seq:      m.seq,
 	}
-	// padding not present irl
-	// rest := make([]byte, -(-msgLen % s.padding))
-	// _, err = io.ReadFull(s.bs, rest)
-	return
+	err := m.middleProxyMsgStream.WriteMsg(&wrappedMsg)
+	if err != nil {
+		fmt.Printf("failed to send message: %v\n", err)
+		return fmt.Errorf("failed to send message: %w", err)
+	}
+	m.seq++
+	return nil
 }
 
-func (s *msgBlockStream) WriteMsg(m *message) (err error) {
-	buf := make([]byte, 0, len(m.data)+12)
-	buf = binary.LittleEndian.AppendUint32(buf, uint32(len(m.data)+12))
-	buf = binary.LittleEndian.AppendUint32(buf, m.seq)
-	buf = append(buf, m.data...)
-	crc := crc32.ChecksumIEEE(buf)
-	buf = binary.LittleEndian.AppendUint32(buf, crc)
-	padlen := -(-len(buf) % s.padding)
-	padbuf := []byte{}
-	for len(padbuf) < padlen {
-		padbuf = append(padbuf, tgcrypt_encryption.PaddingFiller[:]...)
+func (s *MiddleProxyStream) CloseStream() error {
+	s.closed.Store(true)
+	if s.middleProxyMsgStream == nil {
+		return nil
+	} else {
+		return s.middleProxyMsgStream.CloseStream()
 	}
-	buf = append(buf, padbuf[:padlen]...)
-	_, err = s.bs.Write(buf)
-	return
-}
-
-func (s *msgBlockStream) CloseStream() error {
-	return s.bs.Close()
 }
