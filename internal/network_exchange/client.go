@@ -97,7 +97,7 @@ func (o *ClientHandler) processWithConfig() (err error) {
 			o.statsHandle.SetState(stats.Obfuscated)
 		} else {
 			dcStream = LoginDC(sock, o.cliCtx.Protocol)
-			o.statsHandle.SetState(stats.Obfuscated)
+			o.statsHandle.SetState(stats.Simple)
 		}
 		defer dcStream.Close()
 		transceiveDataStreams(o.cliStream, dcStream)
