@@ -31,38 +31,38 @@ func NewClient(cfg *config.Config, statsHandle *stats.StatsHandle, client net.Co
 	}
 }
 
-func (o *ClientHandler) HandleClient() (err error) {
-	defer o.client.Close()
-	defer o.statsHandle.Close()
+func (c *ClientHandler) HandleClient() (err error) {
+	defer c.client.Close()
+	defer c.statsHandle.Close()
 	var initialPacket tgcrypt_encryption.Nonce
-	n, err := io.ReadFull(o.client, initialPacket[:])
+	n, err := io.ReadFull(c.client, initialPacket[:])
 	if err != nil {
-		return o.handleFallBack(initialPacket[:n])
+		return c.handleFallBack(initialPacket[:n])
 	}
 	//check for tls in handshake
 	if bytes.Equal(initialPacket[0:len(tgcrypt_encryption.FakeTlsHeader)], tgcrypt_encryption.FakeTlsHeader[:]) {
-		return o.handleFakeTls(initialPacket)
+		return c.handleFakeTls(initialPacket)
 	} else {
-		return o.handleObfClient(initialPacket)
+		return c.handleObfClient(initialPacket)
 	}
 }
 
 var errNoFallbackHost = errors.New("no fallback host")
 
 // redirect connection to fallback host in case of failed authentication
-func (o *ClientHandler) handleFallBack(initialPacket []byte) (err error) {
-	defer o.client.Close()
-	if o.config.GetHost() == nil {
+func (c *ClientHandler) handleFallBack(initialPacket []byte) (err error) {
+	defer c.client.Close()
+	if c.config.GetHost() == nil {
 		return errNoFallbackHost
 	}
-	o.statsHandle.SetState(stats.Fallback)
+	c.statsHandle.SetState(stats.Fallback)
 	fmt.Printf("redirect conection to fake host\n")
-	sa, su, sp := o.config.GetDefaultSocks()
-	dc, err := dcConnectorFromSocks(su, sa, sp, o.config.GetAllowIPv6())
+	sa, su, sp := c.config.GetDefaultSocks()
+	dc, err := dcConnectorFromSocks(su, sa, sp, c.config.GetAllowIPv6())
 	if err != nil {
 		return
 	}
-	host, err := dc.ConnectHost(*o.config.GetHost())
+	host, err := dc.ConnectHost(*c.config.GetHost())
 	if err != nil {
 		return
 	}
@@ -71,52 +71,52 @@ func (o *ClientHandler) handleFallBack(initialPacket []byte) (err error) {
 	if err != nil {
 		return
 	}
-	transceiveStreams(o.client, host)
+	transceiveStreams(c.client, host)
 	return nil
 }
 
-func (o *ClientHandler) processWithConfig() (err error) {
-	s, ok := o.client.(*net.TCPConn)
+func (c *ClientHandler) processWithConfig() (err error) {
+	s, ok := c.client.(*net.TCPConn)
 	if !ok {
 		panic("not a TCP connection")
 	}
-	o.statsHandle.SetConnected(s)
-	if o.user.AdTag == nil { // no intermidiate proxy required
-		dcConector, err := dcConnectorFromSocks(o.user.Socks5, o.user.Socks5_user, o.user.Socks5_pass, o.config.GetAllowIPv6())
+	c.statsHandle.SetConnected(s)
+	if c.user.AdTag == nil { // no intermidiate proxy required
+		dcConector, err := dcConnectorFromSocks(c.user.Socks5, c.user.Socks5_user, c.user.Socks5_pass, c.config.GetAllowIPv6())
 		if err != nil {
 			return err
 		}
-		sock, err := dcConector.ConnectDC(o.cliCtx.Dc)
+		sock, err := dcConector.ConnectDC(c.cliCtx.Dc)
 		if err != nil {
-			return fmt.Errorf("can't connect to DC %d: %w", o.cliCtx.Dc, err)
+			return fmt.Errorf("can't connect to DC %d: %w", c.cliCtx.Dc, err)
 		}
 		var dcStream dataStream
-		if o.user.Obfuscate != nil && *o.user.Obfuscate {
-			dcCtx := tgcrypt_encryption.DcCtxNew(o.cliCtx.Dc, o.cliCtx.Protocol)
+		if c.user.Obfuscate != nil && *c.user.Obfuscate {
+			dcCtx := tgcrypt_encryption.DcCtxNew(c.cliCtx.Dc, c.cliCtx.Protocol)
 			dcStream = ObfuscateDC(sock, dcCtx)
-			o.statsHandle.SetState(stats.Obfuscated)
+			c.statsHandle.SetState(stats.Obfuscated)
 		} else {
-			dcStream = LoginDC(sock, o.cliCtx.Protocol)
-			o.statsHandle.SetState(stats.Simple)
+			dcStream = LoginDC(sock, c.cliCtx.Protocol)
+			c.statsHandle.SetState(stats.Simple)
 		}
 		defer dcStream.Close()
-		transceiveDataStreams(o.cliStream, dcStream)
+		transceiveDataStreams(c.cliStream, dcStream)
 	} else {
-		mpm, err := getMiddleProxyManager(o.config)
+		mpm, err := getMiddleProxyManager(c.config)
 		if err != nil {
 			return err
 		}
-		adTag, err := hex.DecodeString(*o.user.AdTag)
+		adTag, err := hex.DecodeString(*c.user.AdTag)
 		if err != nil {
-			return fmt.Errorf("can't decode adTag (%s): %w", *o.user.AdTag, err)
+			return fmt.Errorf("can't decode adTag (%s): %w", *c.user.AdTag, err)
 		}
-		middleProxyStream, err := mpm.connect(o.cliCtx.Dc, o.client, o.cliCtx.Protocol, adTag)
+		middleProxyStream, err := mpm.connect(c.cliCtx.Dc, c.client, c.cliCtx.Protocol, adTag)
 		if err != nil {
 			return fmt.Errorf("can't connect to middle proxy: %w", err)
 		}
 		defer middleProxyStream.CloseStream()
-		clientMsgStream := newMsgStream(o.cliStream)
-		o.statsHandle.SetState(stats.Middleproxy)
+		clientMsgStream := newMsgStream(c.cliStream)
+		c.statsHandle.SetState(stats.Middleproxy)
 		transceiveMsg(clientMsgStream, middleProxyStream)
 	}
 	return nil
