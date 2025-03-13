@@ -16,8 +16,11 @@ import (
 )
 
 var (
-	mpmLock                  sync.Mutex
-	mpm                      *MiddleProxyManager
+	mpmLock sync.Mutex
+	mpm     *MiddleProxyManager
+)
+
+const (
 	connectTimeout           = time.Second * 5
 	proxyListUpdateTime      = time.Second * 3600
 	this2mpConnectRetryDelay = time.Millisecond * 1000
@@ -31,7 +34,7 @@ func getMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 	if mpm == nil {
 		mpmNew, err := NewMiddleProxyManager(cfg)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("can't create middle proxy manager: %w", err)
 		}
 		mpm = mpmNew
 	}
@@ -39,20 +42,16 @@ func getMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 }
 
 type MiddleProxyManager struct {
-	cfg                      *config.Config
-	mutex                    sync.Mutex
-	proxyListUpdateTicker    *time.Ticker
-	middleV4                 *maplist.MapList[int16, string]
-	middleV6                 *maplist.MapList[int16, string]
-	mpSecret                 []byte
-	this2mpConnectRetryTimer *time.Ticker
+	cfg      *config.Config
+	mutex    sync.Mutex
+	middleV4 *maplist.MapList[int16, string]
+	middleV6 *maplist.MapList[int16, string]
+	mpSecret []byte
 }
 
 func NewMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 	m := &MiddleProxyManager{
-		cfg:                      cfg,
-		this2mpConnectRetryTimer: time.NewTicker(this2mpConnectRetryDelay),
-		proxyListUpdateTicker:    time.NewTicker(proxyListUpdateTime),
+		cfg: cfg,
 	}
 	err := m.updateProxyList()
 	if err != nil {
@@ -63,6 +62,7 @@ func NewMiddleProxyManager(cfg *config.Config) (*MiddleProxyManager, error) {
 }
 
 // updates proxy list from official site
+// TODO default managers for different clients
 func (m *MiddleProxyManager) updateProxyList() error {
 	// create dialer according to proxy settings
 	var dialer proxy.Dialer
@@ -98,23 +98,30 @@ func (m *MiddleProxyManager) updateProxyList() error {
 	if err != nil {
 		return fmt.Errorf("failed to read proxy secret: %w", err)
 	}
-	// get ipv4 list
-	response, err = httpClient.Get(tgcrypt_encryption.MiddleConfigIp4)
-	if err != nil || response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to get ip4 proxy list: %w", err)
+	getList := func(url, ip_type string) (*maplist.MapList[int16, string], error) {
+		response, err := httpClient.Get(url)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get ipv%s proxy list: %w", ip_type, err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to get ipv%s proxy list (status code: %d)", ip_type, response.StatusCode)
+		}
+		ipList, err := parseList(response.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse ipv%s proxy list: %w", ip_type, err)
+		}
+		return ipList, nil
 	}
-	ip4List, err := parseList(response.Body)
+	// get ipv4 list
+	ip4List, err := getList(tgcrypt_encryption.MiddleConfigIp4, "4")
 	if err != nil {
-		return fmt.Errorf("failed to parse ip4 proxy list: %w", err)
+		return err
 	}
 	// get ipv6 list
-	response, err = httpClient.Get(tgcrypt_encryption.MiddleConfigIp6)
-	if err != nil || response.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to get ip6 proxy list: %w", err)
-	}
-	ip6List, err := parseList(response.Body)
+	ip6List, err := getList(tgcrypt_encryption.MiddleConfigIp6, "6")
 	if err != nil {
-		return fmt.Errorf("failed to parse ip6 proxy list: %w", err)
+		return err
 	}
 	m.mutex.Lock()
 	m.mpSecret = secret
@@ -125,8 +132,10 @@ func (m *MiddleProxyManager) updateProxyList() error {
 }
 
 func (m *MiddleProxyManager) proxyListUpdateRoutine() {
+	updateTimer := time.NewTicker(proxyListUpdateTime)
+	defer updateTimer.Stop()
 	for {
-		_, ok := <-m.proxyListUpdateTicker.C
+		_, ok := <-updateTimer.C
 		if ok {
 			err := m.updateProxyList()
 			if err != nil {
@@ -180,8 +189,10 @@ func (m *MiddleProxyManager) GetProxy(dc int16) (url4, url6 string, err error) {
 
 //lint:ignore U1000 reserved for future use
 func (m *MiddleProxyManager) connectRetry(dc int16, client net.Conn, cliProtocol uint8, addTag []byte) (*MiddleProxyStream, error) {
+	reconnectTimer := time.NewTicker(this2mpConnectRetryDelay)
+	defer reconnectTimer.Stop()
 	for {
-		<-m.this2mpConnectRetryTimer.C
+		<-reconnectTimer.C
 		mp, err := m.connect(dc, client, cliProtocol, addTag)
 		if err != nil {
 			continue
@@ -225,6 +236,7 @@ func (m *MiddleProxyManager) connect(dc int16, client net.Conn, clientProtocol u
 // try to connect to ipv6 and (if this fails) to ipv4
 // only direct connections supported by Telegram middle-proxies (encryption is
 // based on IPs)
+// TODO: wrap error into struct
 func connect64(url4, url6 string) (c net.Conn, err error) {
 	var err6, err4 error
 	if url6 != "" {
