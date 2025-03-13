@@ -112,10 +112,10 @@ func (c *Config) GetUserSecret(user string) (string, error) {
 	}
 }
 
-func (c *Config) IterateUsers() func(func(*User) bool) {
-	return func(fn func(*User) bool) {
+func (c *Config) IterateUsers() func(func(string) bool) {
+	return func(fn func(string) bool) {
 		for _, u := range c.users.Users {
-			if !fn(u) {
+			if !fn(u.Name) {
 				return
 			}
 		}

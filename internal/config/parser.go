@@ -39,8 +39,8 @@ func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) 
 	if err != nil {
 		return nil, err
 	}
-	for u := range c.IterateUsers() {
-		userData, _ := c.GetUser(u.Name)
+	for name := range c.IterateUsers() {
+		userData, _ := c.GetUser(name)
 		err = checkUser(&userData)
 		if err != nil {
 			return nil, err

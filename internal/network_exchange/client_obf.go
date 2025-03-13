@@ -10,8 +10,12 @@ import (
 
 func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt_encryption.NonceSize]byte) (err error) {
 	var user *string
-	for u := range o.config.IterateUsers() {
+	for name := range o.config.IterateUsers() {
 		runtime.Gosched()
+		u, err := o.config.GetUser(name)
+		if err != nil {
+			panic("invalid name in user iteration")
+		}
 		if tgcrypt_encryption.IsWrongNonce(initialPacket) {
 			continue
 		}

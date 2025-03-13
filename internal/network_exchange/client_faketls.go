@@ -25,8 +25,12 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt_encryption.NonceSiz
 	if err != nil {
 		return
 	}
-	for u := range o.config.IterateUsers() {
+	for name := range o.config.IterateUsers() {
 		runtime.Gosched()
+		u, err := o.config.GetUser(name)
+		if err != nil {
+			panic("invalid name in user iteration")
+		}
 		userSecret, err := tgcrypt_encryption.NewSecretHex(u.Secret)
 		if err != nil {
 			continue
@@ -35,7 +39,7 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt_encryption.NonceSiz
 		if err != nil {
 			continue
 		} else {
-			o.user = u
+			o.user = &u
 			fmt.Printf("Client connected %s (faketls)\n", u.Name)
 			break
 		}
