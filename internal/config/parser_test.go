@@ -161,3 +161,57 @@ func TestIgnoreTimestampDefault(t *testing.T) {
 		t.Errorf("ignore_timestamps not parsed correctly")
 	}
 }
+
+func TestInheritAdTag(t *testing.T) {
+	config := `
+		listen_url = "0.0.0.0:6666"
+		adtag = "000102030405060708090a0b0c0d0e0f"
+		[users.inherit1]
+		secret = "dd000102030405060708090a0b0c0d0e0f"
+		[users.inherit2]
+		secret = "dd101112131415161718191a1b1c1d1e1f"
+		[users.override1]
+		secret = "dd202122232425262728292a2b2c2d2e2f"
+		adtag = ""
+		[users.override2]
+		secret = "dd303132333435363738393a3b3c3d3e3f"
+		adtag = "101112131415161718191a1b1c1d1e1f"
+	`
+	var pc parsedConfig
+	md, err := toml.Decode(config, &pc)
+	if err != nil {
+		t.Errorf("Addtag config not decoded: %v", err)
+	}
+	c, err := configFromParsed(&pc, &md)
+	if err != nil {
+		t.Errorf("Adtag config not parsed: %v", err)
+	}
+	inherit1, err := c.GetUser("inherit1")
+	if err != nil {
+		t.Errorf("no inherit1 user in Adtag config")
+	}
+	if *inherit1.AdTag != "000102030405060708090a0b0c0d0e0f" {
+		t.Errorf("inherit1 user addtag not invalid")
+	}
+	inherit2, err := c.GetUser("inherit2")
+	if err != nil {
+		t.Errorf("no inherit2 user in Adtag config")
+	}
+	if *inherit2.AdTag != "000102030405060708090a0b0c0d0e0f" {
+		t.Errorf("inherit2 user addtag not invalid")
+	}
+	override1, err := c.GetUser("override1")
+	if err != nil {
+		t.Errorf("no override user in Adtag config")
+	}
+	if override1.AdTag != nil {
+		t.Errorf("override user addtag not nil")
+	}
+	override2, err := c.GetUser("override2")
+	if err != nil {
+		t.Errorf("no override2 user in Adtag config")
+	}
+	if *override2.AdTag != "101112131415161718191a1b1c1d1e1f" {
+		t.Errorf("override2 user addtag not invalid")
+	}
+}

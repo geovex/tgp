@@ -40,6 +40,7 @@ type parsedConfig struct {
 	Users            *map[string]toml.Primitive
 }
 
+// TODO use same parsing for default user and user
 type parsedUserPrimitive struct {
 	Secret      string
 	Obfuscate   *bool
@@ -85,6 +86,8 @@ func (c *Config) GetUser(user string) (u User, err error) {
 	}
 	if u.AdTag == nil {
 		u.AdTag = c.AdTag
+	} else if *u.AdTag == "" {
+		u.AdTag = nil
 	}
 	if u.Socks5 == nil {
 		u.Socks5 = c.socks5
