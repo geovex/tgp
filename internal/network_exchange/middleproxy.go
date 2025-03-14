@@ -227,7 +227,7 @@ func (m *MiddleProxyManager) connect(dc int16, client net.Conn, clientProtocol u
 	this2middleTcp.SetNoDelay(true)
 	rs := newRawStream(this2middle, tgcrypt_encryption.Full)
 	mps := NewMiddleProxyStream(rs, client, this2middle, addTag, clientProtocol)
-	if mps != nil {
+	if mps == nil {
 		return nil, fmt.Errorf("failed to create middle proxy stream")
 	}
 	return mps, nil
