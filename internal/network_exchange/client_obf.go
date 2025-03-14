@@ -5,6 +5,7 @@ import (
 	"runtime"
 
 	"github.com/geovex/tgp/internal/config"
+	"github.com/geovex/tgp/internal/stats"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
@@ -46,6 +47,10 @@ func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt_encryption.NonceS
 		panic("user found, but GetUser failed")
 	}
 	o.user = &u
+	var flags = stats.ConnectionFlags{
+		Obfuscated: true,
+	}
+	o.statsHandle.OrFlags(flags)
 	o.cliStream = newObfuscatedStream(o.client, o.cliCtx, nil, o.cliCtx.Protocol)
 	err = o.processWithConfig()
 	fmt.Printf("Client disconnected %s\n", o.user.Name)

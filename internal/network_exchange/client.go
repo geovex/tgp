@@ -81,6 +81,7 @@ func (c *ClientHandler) processWithConfig() (err error) {
 		panic("not a TCP connection")
 	}
 	c.statsHandle.SetConnected(s)
+	var flags = stats.ConnectionFlags{}
 	if c.user.AdTag == nil { // no intermidiate proxy required
 		dcConector, err := dcConnectorFromSocks(c.user.Socks5, c.user.Socks5_user, c.user.Socks5_pass, c.config.GetAllowIPv6())
 		if err != nil {
@@ -94,10 +95,9 @@ func (c *ClientHandler) processWithConfig() (err error) {
 		if c.user.Obfuscate != nil && *c.user.Obfuscate {
 			dcCtx := tgcrypt_encryption.DcCtxNew(c.cliCtx.Dc, c.cliCtx.Protocol)
 			dcStream = ObfuscateDC(sock, dcCtx)
-			c.statsHandle.SetState(stats.Obfuscated)
+			flags.Obfuscated = true
 		} else {
 			dcStream = LoginDC(sock, c.cliCtx.Protocol)
-			c.statsHandle.SetState(stats.Simple)
 		}
 		defer dcStream.Close()
 		transceiveDataStreams(c.cliStream, dcStream)
@@ -116,8 +116,9 @@ func (c *ClientHandler) processWithConfig() (err error) {
 		}
 		defer middleProxyStream.CloseStream()
 		clientMsgStream := newMsgStream(c.cliStream)
-		c.statsHandle.SetState(stats.Middleproxy)
+		flags.MiddleProxy = true
 		transceiveMsg(clientMsgStream, middleProxyStream)
 	}
+	c.statsHandle.OrFlags(flags)
 	return nil
 }

@@ -19,10 +19,10 @@ func New() *Stats {
 }
 
 func (s *Stats) AllocClient() *StatsHandle {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 	client := newClient()
+	s.lock.Lock()
 	s.clients = append(s.clients, client)
+	s.lock.Unlock()
 	clientHandle := &StatsHandle{
 		client: client,
 		stats:  s,
@@ -42,11 +42,10 @@ func (s *Stats) removeClient(client *Client) {
 }
 
 func (s *Stats) AsString() string {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	// generate per-user stats
 	userStats := map[string]int{}
 	fallbacks := 0
+	// generate per-user stats
+	s.lock.RLock()
 	for _, c := range s.clients {
 		if c.Name != nil && *c.Name != "" {
 			userStats[*c.Name]++
@@ -54,6 +53,7 @@ func (s *Stats) AsString() string {
 			fallbacks++
 		}
 	}
+	s.lock.RUnlock()
 	b := &strings.Builder{}
 	fmt.Fprintf(b, "Clients:\nTotal: %d\n\n", len(s.clients))
 	for name, count := range userStats {
