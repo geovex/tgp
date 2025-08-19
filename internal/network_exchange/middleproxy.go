@@ -171,7 +171,7 @@ func parseList(r io.ReadCloser) (*maplist.MapList[int16, string], error) {
 		list.Add(id, url)
 	}
 	if scanner.Err() != nil {
-		return nil, fmt.Errorf("failed to parse ip6 proxy list: %w", scanner.Err())
+		return nil, fmt.Errorf("failed to parse proxy list: %w", scanner.Err())
 	}
 	return list, nil
 }
@@ -228,7 +228,7 @@ func (m *MiddleProxyManager) connect(dc int16, client net.Conn, clientProtocol u
 	rs := newRawStream(this2middle, tgcrypt_encryption.Full)
 	mps := NewMiddleProxyStream(rs, client, this2middle, addTag, clientProtocol)
 	if mps == nil {
-		return nil, fmt.Errorf("failed to create middle proxy stream")
+		panic(fmt.Errorf("failed to create middle proxy stream"))
 	}
 	return mps, nil
 }

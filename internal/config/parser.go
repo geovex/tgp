@@ -12,11 +12,11 @@ func ReadConfig(path string) (*Config, error) {
 	var c parsedConfig
 	md, err := toml.DecodeFile(path, &c)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 	result, err := configFromParsed(&c, &md)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("failed to generate config from parsed: %w", err)
 	}
 	return result, nil
 }
@@ -25,11 +25,11 @@ func DefaultConfig() *Config {
 	var c parsedConfig
 	md, err := toml.Decode(defaultConfigData, &c)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to parse default config: %w", err))
 	}
 	result, err := configFromParsed(&c, &md)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to generate default config: %w", err))
 	}
 	return result
 }
