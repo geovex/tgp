@@ -37,13 +37,13 @@ func DefaultConfig() *Config {
 func configFromParsed(parsed *parsedConfig, md *toml.MetaData) (*Config, error) {
 	c, err := configFromParsedUnchecked(parsed, md)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate unchecked config: %w", err)
 	}
 	for name := range c.IterateUsers() {
 		userData, _ := c.GetUser(name)
 		err = checkUser(&userData)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid config for user %s: %w", name, err)
 		}
 	}
 	return c, nil
@@ -56,13 +56,13 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 		var url string
 		err := md.PrimitiveDecode(parsed.Listen_Url, &url)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode listen_url: %w", err)
 		}
 		listenUrls = []string{url}
 	} else if md.Type("listen_url") == "Array" {
 		err := md.PrimitiveDecode(parsed.Listen_Url, &listenUrls)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to decode listen_url: %w", err)
 		}
 	} else {
 		return nil, fmt.Errorf("listen_url must be string or array")
