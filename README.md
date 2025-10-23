@@ -16,7 +16,7 @@ Inspired by [mtprotoproxy](https://github.com/alexbers/mtprotoproxy)
 
 ## Building ##
 
-You will most likely need `go 1.23`
+You will most likely need `go 1.24`
 
 ```shell
 go mod download
