@@ -18,6 +18,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 		// read length
 		_, err = io.ReadFull(s.sock, l[:1])
 		if err != nil {
+			err = fmt.Errorf("failed to read message length: %w", err)
 			return
 		}
 		var msgLen uint32
@@ -26,6 +27,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 		} else {
 			_, err = io.ReadFull(s.sock, l[1:4])
 			if err != nil {
+				err = fmt.Errorf("failed to read message length: %w", err)
 				return
 			}
 			if l[0]&0x80 != 0 {
@@ -44,6 +46,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 		msg := make([]byte, msgLen)
 		_, err = io.ReadFull(s.sock, msg)
 		if err != nil {
+			err = fmt.Errorf("failed to read message data: %w", err)
 			return
 		}
 		m = &message{msg, false, 0}
@@ -53,6 +56,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 		var l [4]byte
 		_, err = io.ReadFull(s.sock, l[:])
 		if err != nil {
+			err = fmt.Errorf("failed to read message length: %w", err)
 			return
 		}
 		msgLen := binary.LittleEndian.Uint32(l[:])
@@ -69,6 +73,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 		msg := make([]byte, msgLen)
 		_, err = io.ReadFull(s.sock, msg)
 		if err != nil {
+			err = fmt.Errorf("failed to read message data: %w", err)
 			return
 		}
 		m = &message{msg, false, 0}
@@ -112,5 +117,8 @@ func (s *msgStream) WriteSrvMsg(m *message) (err error) {
 	}
 	fmt.Printf("msg write seq: %d hex: %s\n", m.seq, hex.EncodeToString(sendmsg))
 	_, err = s.sock.Write(sendmsg)
+	if err != nil {
+		err = fmt.Errorf("failed to send message: %w", err)
+	}
 	return
 }
