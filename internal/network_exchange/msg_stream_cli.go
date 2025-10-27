@@ -32,6 +32,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		} else {
 			_, err = io.ReadFull(s.sock, l[:3])
 			if err != nil {
+				err = fmt.Errorf("failed to read message length: %w", err)
 				return
 			}
 			msgLen = binary.LittleEndian.Uint32(l[:])
@@ -45,6 +46,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		}
 		_, err = io.ReadFull(s.sock, msgbuf)
 		if err != nil {
+			err = fmt.Errorf("failed to read message data: %w", err)
 			return
 		}
 	case tgcrypt_encryption.Intermediate, tgcrypt_encryption.Padded:
@@ -52,6 +54,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		var l [4]byte
 		_, err = io.ReadFull(s.sock, l[:])
 		if err != nil {
+			err = fmt.Errorf("failed to read message length: %w", err)
 			return
 		}
 		msgLen = binary.LittleEndian.Uint32(l[:])
@@ -67,6 +70,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		msgbuf = make([]byte, msgLen)
 		_, err = io.ReadFull(s.sock, msgbuf)
 		if err != nil {
+			err = fmt.Errorf("failed to read message data: %w", err)
 			return
 		}
 	case tgcrypt_encryption.Full:
@@ -74,6 +78,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		var l [4]byte
 		_, err = io.ReadFull(s.sock, l[:])
 		if err != nil {
+			err = fmt.Errorf("failed to read message length: %w", err)
 			return
 		}
 		msgLen := binary.LittleEndian.Uint32(l[:])
@@ -90,6 +95,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 		rawmsg = append(rawmsg, l[:]...)
 		_, err = io.ReadFull(s.sock, rawmsg[4:])
 		if err != nil {
+			err = fmt.Errorf("failed to read message data: %w", err)
 			return
 		}
 		seq = binary.LittleEndian.Uint32(rawmsg[4:8])
@@ -122,6 +128,9 @@ func (s *msgStream) WriteCliMsg(m *message) (err error) {
 			fmt.Printf("client write quickack %v\n", sendmsg)
 		}
 		_, err = s.sock.Write(sendmsg)
+		if err != nil {
+			err = fmt.Errorf("failed to write quickack message: %w", err)
+		}
 		return
 	}
 	switch s.sock.Protocol() {
