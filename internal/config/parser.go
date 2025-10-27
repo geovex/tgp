@@ -93,7 +93,8 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 			var u User
 			// user defined by it's secret
 			userRecordType := md.Type("users", name)
-			if userRecordType == "String" {
+			switch userRecordType {
+			case "String":
 				var secret string
 				err := md.PrimitiveDecode(data, &secret)
 				if err != nil {
@@ -108,7 +109,7 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 					Socks5_user: parsed.Socks5_user,
 					Socks5_pass: parsed.Socks5_pass,
 				}
-			} else if userRecordType == "Hash" { // user fully defined
+			case "Hash": // user fully defined
 				var pu parsedUserPrimitive
 				err := md.PrimitiveDecode(data, &pu)
 				if err != nil {
@@ -123,7 +124,7 @@ func configFromParsedUnchecked(parsed *parsedConfig, md *toml.MetaData) (*Config
 					Socks5_user: pu.Socks5_user,
 					Socks5_pass: pu.Socks5_pass,
 				}
-			} else {
+			default:
 				return nil, fmt.Errorf("unknown type for user %s: %s ", name, userRecordType)
 			}
 			users.Users[name] = &u
