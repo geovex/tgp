@@ -14,8 +14,8 @@ import (
 )
 
 type MiddleProxyStream struct {
-	initiated     bool
-	closed        atomic.Bool
+	initiated     bool        // for reconnect because reconnect will try to initiate
+	closed        atomic.Bool // mostly for remove excessive logs and only log broken connection
 	thisProtocol  uint8
 	seq           uint32
 	encryptionCtx *tgcrypt_encryption.MiddleCtx
@@ -236,6 +236,7 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 	fullmsg = append(fullmsg, tgcrypt_encryption.ProxyTag[:]...)
 	fullmsg = append(fullmsg, uint8(len(m.encryptionCtx.AdTag)))
 	fullmsg = append(fullmsg, m.encryptionCtx.AdTag...)
+	// TODO: consider random padding
 	fullmsg = append(fullmsg, 0, 0, 0) //allign bytes
 	data := msg.data[:len(msg.data)-len(msg.data)%4]
 	fullmsg = append(fullmsg, data...) //trim padded message
