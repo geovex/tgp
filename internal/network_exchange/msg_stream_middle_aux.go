@@ -59,6 +59,7 @@ func (s *blockStream) Write(b []byte) (n int, err error) {
 		}
 		s.writeBuf = s.writeBuf[s.ctx.BlockSize():]
 	}
+	n += len(s.writeBuf)
 	return
 }
 
