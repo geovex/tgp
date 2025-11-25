@@ -10,6 +10,8 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
+// TODO: Do not implement read and write and use cypher padding
+
 type blockStream struct {
 	sock              dataStream
 	ctx               *tgcrypt_encryption.MpCtx
