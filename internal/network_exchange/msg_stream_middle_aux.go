@@ -121,6 +121,8 @@ func (s *msgBlockStream) ReadMsg() (m *message, err error) {
 	return
 }
 
+// message supposed to be padded by 4
+// TODO: consider squashing messages
 func (s *msgBlockStream) WriteMsg(m *message) (err error) {
 	buf := make([]byte, 0, len(m.data)+12)
 	buf = binary.LittleEndian.AppendUint32(buf, uint32(len(m.data)+12))
@@ -128,7 +130,8 @@ func (s *msgBlockStream) WriteMsg(m *message) (err error) {
 	buf = append(buf, m.data...)
 	crc := crc32.ChecksumIEEE(buf)
 	buf = binary.LittleEndian.AppendUint32(buf, crc)
-	padlen := -(-len(buf) % s.padding)
+	padlen := s.padding - len(buf)%s.padding
+	// log.Printf("len: %d, padlen: %d\n", len(buf), padlen)
 	padbuf := []byte{}
 	for len(padbuf) < padlen {
 		padbuf = append(padbuf, tgcrypt_encryption.PaddingFiller[:]...)
