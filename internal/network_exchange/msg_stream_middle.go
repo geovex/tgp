@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/geovex/tgp/internal/network_exchange/streams"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
@@ -25,12 +26,12 @@ type MiddleProxyStream struct {
 	//rpcTimeStamp //not really needed after login
 	clientAddr           netip.AddrPort
 	middleProxyNonce     tgcrypt_encryption.RpcNonce
-	middleProxySock      DataStream
+	middleProxySock      streams.DataStream
 	middleProxyMsgStream *msgBlockStream
 	connId               [8]byte
 }
 
-func NewMiddleProxyStream(mpStream DataStream, client, mp net.Conn, addTag []byte, clientProtocol uint8) *MiddleProxyStream {
+func NewMiddleProxyStream(mpStream streams.DataStream, client, mp net.Conn, addTag []byte, clientProtocol uint8) *MiddleProxyStream {
 	// all panics heare are in case of client or mp are not actually TCP or something crasy like this
 	this2mpLocalAddr := mp.LocalAddr() // client address
 	this2mpLocalTcpAddr, ok := this2mpLocalAddr.(*net.TCPAddr)

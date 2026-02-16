@@ -7,20 +7,21 @@ import (
 	"hash/crc32"
 	"io"
 
+	"github.com/geovex/tgp/internal/network_exchange/streams"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
 // TODO: Do not implement read and write and use cypher padding
 
 type blockStream struct {
-	sock              DataStream
+	sock              streams.DataStream
 	ctx               *tgcrypt_encryption.MpCtx
 	readBuf, writeBuf []byte
 }
 
-var _ DataStream = &blockStream{}
+var _ streams.DataStream = &blockStream{}
 
-func newBlockStream(sock DataStream, ctx *tgcrypt_encryption.MpCtx) *blockStream {
+func newBlockStream(sock streams.DataStream, ctx *tgcrypt_encryption.MpCtx) *blockStream {
 	return &blockStream{
 		sock:     sock,
 		ctx:      ctx,
@@ -70,11 +71,11 @@ func (s *blockStream) Close() error {
 }
 
 type msgBlockStream struct {
-	bs      DataStream
+	bs      streams.DataStream
 	padding int
 }
 
-func newMsgBlockStream(stream DataStream, padding int) *msgBlockStream {
+func newMsgBlockStream(stream streams.DataStream, padding int) *msgBlockStream {
 	return &msgBlockStream{
 		bs:      stream,
 		padding: padding,

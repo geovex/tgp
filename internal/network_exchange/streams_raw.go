@@ -5,6 +5,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/geovex/tgp/internal/network_exchange/streams"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
@@ -14,7 +15,7 @@ type rawStream struct {
 	stream   io.ReadWriteCloser
 }
 
-var _ DataStream = &rawStream{}
+var _ streams.DataStream = &rawStream{}
 
 func newRawStream(stream io.ReadWriteCloser, protocol uint8) *rawStream {
 	return &rawStream{

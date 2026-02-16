@@ -1,6 +1,10 @@
 package network_exchange
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/geovex/tgp/internal/network_exchange/streams"
+)
 
 type message struct {
 	data     []byte // if nil, skip send
@@ -26,10 +30,12 @@ type msgStreamCli interface {
 }
 
 type msgStream struct {
-	sock DataStream
+	sock streams.DataStream
 }
 
-func newMsgStream(sock DataStream) *msgStream {
+// var _ streams.DataStream = MsgStream{}
+
+func newMsgStream(sock streams.DataStream) *msgStream {
 	return &msgStream{
 		sock: sock,
 	}
@@ -45,7 +51,7 @@ func (s *msgStream) Initiate() error {
 }
 
 //lint:ignore U1000 will be used later
-func transceiveMsgStreams(client, dc DataStream) (errc, errd error) {
+func transceiveMsgStreams(client, dc streams.DataStream) (errc, errd error) {
 	defer client.Close()
 	defer dc.Close()
 	clientStream := newMsgStream(client)

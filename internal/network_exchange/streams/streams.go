@@ -1,4 +1,4 @@
-package network_exchange
+package streams
 
 import (
 	"io"

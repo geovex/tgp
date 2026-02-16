@@ -9,6 +9,7 @@ import (
 	"net"
 
 	"github.com/geovex/tgp/internal/config"
+	"github.com/geovex/tgp/internal/network_exchange/streams"
 	"github.com/geovex/tgp/internal/stats"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
@@ -20,7 +21,7 @@ type ClientHandler struct {
 	// available after handshake
 	user      *config.User
 	cliCtx    *tgcrypt_encryption.ObfCtx
-	cliStream DataStream
+	cliStream streams.DataStream
 }
 
 func NewClient(cfg *config.Config, statsHandle *stats.StatsHandle, client net.Conn) *ClientHandler {
@@ -77,7 +78,7 @@ func (c *ClientHandler) handleFallBack(initialPacket []byte) (err error) {
 	if err != nil {
 		return
 	}
-	TransceiveStreams(c.client, host)
+	streams.TransceiveStreams(c.client, host)
 	return nil
 }
 
@@ -97,7 +98,7 @@ func (c *ClientHandler) processWithConfig() (err error) {
 		if err != nil {
 			return fmt.Errorf("can't connect to DC %d: %w", c.cliCtx.Dc, err)
 		}
-		var dcStream DataStream
+		var dcStream streams.DataStream
 		if c.user.Obfuscate != nil && *c.user.Obfuscate {
 			dcCtx := tgcrypt_encryption.DcCtxNew(c.cliCtx.Dc, c.cliCtx.Protocol)
 			dcStream = ObfuscateDC(sock, dcCtx)
@@ -106,7 +107,7 @@ func (c *ClientHandler) processWithConfig() (err error) {
 			dcStream = LoginDC(sock, c.cliCtx.Protocol)
 		}
 		defer dcStream.Close()
-		TransceiveDataStreams(c.cliStream, dcStream)
+		streams.TransceiveDataStreams(c.cliStream, dcStream)
 	} else {
 		mpm, err := getMiddleProxyManager(c.config)
 		if err != nil {
