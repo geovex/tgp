@@ -33,9 +33,11 @@ func (s *rawStream) Initiate() error {
 	case tgcrypt_encryption.Abridged:
 		header = []byte{tgcrypt_encryption.Abridged}
 	case tgcrypt_encryption.Intermediate:
-		header = []byte{tgcrypt_encryption.Intermediate, tgcrypt_encryption.Intermediate, tgcrypt_encryption.Intermediate, tgcrypt_encryption.Intermediate}
+		const i = tgcrypt_encryption.Intermediate
+		header = []byte{i, i, i, i}
 	case tgcrypt_encryption.Padded:
-		header = []byte{tgcrypt_encryption.Padded, tgcrypt_encryption.Padded, tgcrypt_encryption.Padded, tgcrypt_encryption.Padded}
+		const p = tgcrypt_encryption.Padded
+		header = []byte{p, p, p, p}
 	case tgcrypt_encryption.Full: // do nothing for Full protocol
 		return nil
 	default:
