@@ -8,7 +8,7 @@ import (
 // Describes common logic for byte streams (usually to DC)
 // Basically stream can be obfuscated->raw or obfuscated->obfuscated. Both works
 // with telegram DC
-type dataStream interface {
+type DataStream interface {
 	io.ReadWriteCloser
 	// Writes necessary data that describes protocol
 	Initiate() error
@@ -17,15 +17,15 @@ type dataStream interface {
 	Protocol() uint8
 }
 
-func transceiveDataStreams(client, dc dataStream) (errc, errd error) {
+func TransceiveDataStreams(client, dc DataStream) (errc, errd error) {
 	errd = dc.Initiate()
 	if errd != nil {
 		return
 	}
-	return transceiveStreams(client, dc)
+	return TransceiveStreams(client, dc)
 }
 
-func transceiveStreams(client, dc io.ReadWriteCloser) (err1, err2 error) {
+func TransceiveStreams(client, dc io.ReadWriteCloser) (err1, err2 error) {
 	defer client.Close()
 	defer dc.Close()
 	var wg sync.WaitGroup

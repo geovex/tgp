@@ -14,7 +14,7 @@ type rawStream struct {
 	stream   io.ReadWriteCloser
 }
 
-var _ dataStream = &rawStream{}
+var _ DataStream = &rawStream{}
 
 func newRawStream(stream io.ReadWriteCloser, protocol uint8) *rawStream {
 	return &rawStream{

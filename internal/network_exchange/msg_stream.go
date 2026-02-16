@@ -26,10 +26,10 @@ type msgStreamCli interface {
 }
 
 type msgStream struct {
-	sock dataStream
+	sock DataStream
 }
 
-func newMsgStream(sock dataStream) *msgStream {
+func newMsgStream(sock DataStream) *msgStream {
 	return &msgStream{
 		sock: sock,
 	}
@@ -45,7 +45,7 @@ func (s *msgStream) Initiate() error {
 }
 
 //lint:ignore U1000 will be used later
-func transceiveMsgStreams(client, dc dataStream) (errc, errd error) {
+func transceiveMsgStreams(client, dc DataStream) (errc, errd error) {
 	defer client.Close()
 	defer dc.Close()
 	clientStream := newMsgStream(client)

@@ -13,14 +13,14 @@ import (
 // TODO: Do not implement read and write and use cypher padding
 
 type blockStream struct {
-	sock              dataStream
+	sock              DataStream
 	ctx               *tgcrypt_encryption.MpCtx
 	readBuf, writeBuf []byte
 }
 
-var _ dataStream = &blockStream{}
+var _ DataStream = &blockStream{}
 
-func newBlockStream(sock dataStream, ctx *tgcrypt_encryption.MpCtx) *blockStream {
+func newBlockStream(sock DataStream, ctx *tgcrypt_encryption.MpCtx) *blockStream {
 	return &blockStream{
 		sock:     sock,
 		ctx:      ctx,
@@ -70,11 +70,11 @@ func (s *blockStream) Close() error {
 }
 
 type msgBlockStream struct {
-	bs      dataStream
+	bs      DataStream
 	padding int
 }
 
-func newMsgBlockStream(stream dataStream, padding int) *msgBlockStream {
+func newMsgBlockStream(stream DataStream, padding int) *msgBlockStream {
 	return &msgBlockStream{
 		bs:      stream,
 		padding: padding,

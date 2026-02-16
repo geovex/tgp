@@ -15,7 +15,7 @@ type obfuscatedStream struct {
 	obf      tgcrypt_encryption.Obfuscator
 }
 
-var _ dataStream = &obfuscatedStream{}
+var _ DataStream = &obfuscatedStream{}
 
 // create obfuscated stream if nonce is specified, initiate will send it once
 func newObfuscatedStream(
