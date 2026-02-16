@@ -6,10 +6,31 @@ import (
 	"hash/crc32"
 	"io"
 
+	"github.com/geovex/tgp/internal/network_exchange/streams"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
-func (s *msgStream) ReadCliMsg() (m *message, err error) {
+type clientStream struct {
+	sock streams.DataStream
+}
+
+func newClientStream(sock streams.DataStream) *clientStream {
+	return &clientStream{
+		sock: sock,
+	}
+}
+
+var _ streams.MsgStream[*message] = &clientStream{}
+
+func (s *clientStream) Initiate() error {
+	return nil
+}
+
+func (s *clientStream) Close() error {
+	return s.sock.Close()
+}
+
+func (s *clientStream) Recv() (m *message, err error) {
 	quickack := false
 	var msgbuf []byte
 	var seq uint32
@@ -117,7 +138,7 @@ func (s *msgStream) ReadCliMsg() (m *message, err error) {
 	return
 }
 
-func (s *msgStream) WriteCliMsg(m *message) (err error) {
+func (s *clientStream) Send(m *message) (err error) {
 	sendmsg := make([]byte, 0, len(m.data)+20)
 	if m.quickack {
 		if s.sock.Protocol() == tgcrypt_encryption.Abridged {

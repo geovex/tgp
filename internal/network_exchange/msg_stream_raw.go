@@ -13,27 +13,27 @@ import (
 // Basically unused, designed for message-based transceiving not involving
 // middleproxy.used in transceiveMsgStreams
 
-type dcMsgStream struct {
+type rawMsgStream struct {
 	sock streams.DataStream
 }
 
-var _ streams.MsgStream[*message] = &dcMsgStream{}
+var _ streams.MsgStream[*message] = &rawMsgStream{}
 
-func newDcMsgStream(sock streams.DataStream) *dcMsgStream {
-	return &dcMsgStream{
+func newRawMsgStream(sock streams.DataStream) *rawMsgStream {
+	return &rawMsgStream{
 		sock: sock,
 	}
 }
 
-func (s *dcMsgStream) Close() error {
+func (s *rawMsgStream) Close() error {
 	return s.sock.Close()
 }
 
-func (s *dcMsgStream) Initiate() error {
+func (s *rawMsgStream) Initiate() error {
 	return s.sock.Initiate()
 }
 
-func (s *dcMsgStream) Recv() (m *message, err error) {
+func (s *rawMsgStream) Recv() (m *message, err error) {
 	switch s.sock.Protocol() {
 	case tgcrypt_encryption.Abridged:
 		var l [4]byte
@@ -105,7 +105,7 @@ func (s *dcMsgStream) Recv() (m *message, err error) {
 	}
 }
 
-func (s *dcMsgStream) Send(m *message) (err error) {
+func (s *rawMsgStream) Send(m *message) (err error) {
 	sendmsg := make([]byte, 0, len(m.data)+20)
 	switch s.sock.Protocol() {
 	case tgcrypt_encryption.Abridged:

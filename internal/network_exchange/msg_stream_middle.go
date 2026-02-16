@@ -62,8 +62,9 @@ func NewMiddleProxyStream(mpStream streams.DataStream, client, mp net.Conn, addT
 	}
 }
 
-// var _ msgStreamSrv = &MiddleProxyStream{}
+var _ streams.MsgStream[*message] = &MiddleProxyStream{}
 
+// TODO: Decouple stream auto reconnect and this
 func (s *MiddleProxyStream) Initiate() (err error) {
 	if s.initiated {
 		return nil
