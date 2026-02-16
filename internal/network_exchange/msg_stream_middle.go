@@ -62,7 +62,7 @@ func NewMiddleProxyStream(mpStream streams.DataStream, client, mp net.Conn, addT
 	}
 }
 
-var _ msgStreamSrv = &MiddleProxyStream{}
+// var _ msgStreamSrv = &MiddleProxyStream{}
 
 func (s *MiddleProxyStream) Initiate() (err error) {
 	if s.initiated {
@@ -151,7 +151,7 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 	return nil
 }
 
-func (m *MiddleProxyStream) ReadSrvMsg() (*message, error) {
+func (m *MiddleProxyStream) Recv() (*message, error) {
 	msg, err := m.middleProxyMsgStream.ReadMsg()
 	if err != nil {
 		// filter closed stream false positives
@@ -192,7 +192,7 @@ func (m *MiddleProxyStream) ReadSrvMsg() (*message, error) {
 	}
 }
 
-func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
+func (m *MiddleProxyStream) Send(msg *message) error {
 	if msg == nil || msg.data == nil {
 		return nil
 	}

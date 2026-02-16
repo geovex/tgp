@@ -13,12 +13,12 @@ type message struct {
 	seq      uint32
 }
 
-type msgStreamSrv interface {
-	io.Closer
-	Initiate() error
-	ReadSrvMsg() (*message, error)
-	WriteSrvMsg(m *message) error
-}
+// type msgStreamSrv interface {
+// 	io.Closer
+// 	Initiate() error
+// 	Recv() (*message, error)
+// 	Send(m *message) error
+// }
 
 type msgStreamCli interface {
 	io.Closer
@@ -52,11 +52,11 @@ func transceiveMsgStreams(client, dc streams.DataStream) (errc, errd error) {
 	defer client.Close()
 	defer dc.Close()
 	clientStream := newMsgStream(client)
-	dcStream := newMsgStream(dc)
+	dcStream := newDcMsgStream(dc)
 	return transceiveMsg(clientStream, dcStream)
 }
 
-func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
+func transceiveMsg(client msgStreamCli, dc streams.MsgStream[*message]) (err1, err2 error) {
 	defer client.Close()
 	defer dc.Close()
 	err2 = dc.Initiate()
@@ -77,7 +77,7 @@ func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 			}
 			if msg.data != nil {
 				//fmt.Printf("client msg: %d bytes \n", len(msg.data))
-				err1 = dc.WriteSrvMsg(msg)
+				err1 = dc.Send(msg)
 				if err1 != nil {
 					return
 				}
@@ -90,7 +90,7 @@ func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 		defer wg.Done()
 		for {
 			var msg *message
-			msg, err2 = dc.ReadSrvMsg()
+			msg, err2 = dc.Recv()
 			if err2 != nil {
 				return
 			}

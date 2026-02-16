@@ -6,12 +6,34 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/geovex/tgp/internal/network_exchange/streams"
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
 // Basically unused, designed for message-based transceiving not involving
 // middleproxy.used in transceiveMsgStreams
-func (s *msgStream) ReadSrvMsg() (m *message, err error) {
+
+type dcMsgStream struct {
+	sock streams.DataStream
+}
+
+var _ streams.MsgStream[*message] = &dcMsgStream{}
+
+func newDcMsgStream(sock streams.DataStream) *dcMsgStream {
+	return &dcMsgStream{
+		sock: sock,
+	}
+}
+
+func (s *dcMsgStream) Close() error {
+	return s.sock.Close()
+}
+
+func (s *dcMsgStream) Initiate() error {
+	return s.sock.Initiate()
+}
+
+func (s *dcMsgStream) Recv() (m *message, err error) {
 	switch s.sock.Protocol() {
 	case tgcrypt_encryption.Abridged:
 		var l [4]byte
@@ -83,7 +105,7 @@ func (s *msgStream) ReadSrvMsg() (m *message, err error) {
 	}
 }
 
-func (s *msgStream) WriteSrvMsg(m *message) (err error) {
+func (s *dcMsgStream) Send(m *message) (err error) {
 	sendmsg := make([]byte, 0, len(m.data)+20)
 	switch s.sock.Protocol() {
 	case tgcrypt_encryption.Abridged:
