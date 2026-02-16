@@ -121,7 +121,7 @@ func (c *ClientHandler) processWithConfig() (err error) {
 		if err != nil {
 			return fmt.Errorf("can't connect to middle proxy: %w", err)
 		}
-		defer middleProxyStream.CloseStream()
+		defer middleProxyStream.Close()
 		clientMsgStream := newMsgStream(c.cliStream)
 		flags.MiddleProxy = true
 		transceiveMsg(clientMsgStream, middleProxyStream)

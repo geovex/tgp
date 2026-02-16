@@ -1,6 +1,7 @@
 package network_exchange
 
 import (
+	"io"
 	"sync"
 
 	"github.com/geovex/tgp/internal/network_exchange/streams"
@@ -12,19 +13,15 @@ type message struct {
 	seq      uint32
 }
 
-type MsgStreanCloser interface {
-	CloseStream() error
-}
-
 type msgStreamSrv interface {
-	MsgStreanCloser
+	io.Closer
 	Initiate() error
 	ReadSrvMsg() (*message, error)
 	WriteSrvMsg(m *message) error
 }
 
 type msgStreamCli interface {
-	MsgStreanCloser
+	io.Closer
 	ReadCliMsg() (*message, error)
 	WriteCliMsg(m *message) error
 }
@@ -41,7 +38,7 @@ func newMsgStream(sock streams.DataStream) *msgStream {
 	}
 }
 
-func (s *msgStream) CloseStream() error {
+func (s *msgStream) Close() error {
 	return s.sock.Close()
 }
 
@@ -60,8 +57,8 @@ func transceiveMsgStreams(client, dc streams.DataStream) (errc, errd error) {
 }
 
 func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
-	defer client.CloseStream()
-	defer dc.CloseStream()
+	defer client.Close()
+	defer dc.Close()
 	err2 = dc.Initiate()
 	if err2 != nil {
 		return
@@ -69,8 +66,8 @@ func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		defer client.CloseStream()
-		defer dc.CloseStream()
+		defer client.Close()
+		defer dc.Close()
 		defer wg.Done()
 		for {
 			var msg *message
@@ -88,8 +85,8 @@ func transceiveMsg(client msgStreamCli, dc msgStreamSrv) (err1, err2 error) {
 		}
 	}()
 	go func() {
-		defer dc.CloseStream()
-		defer client.CloseStream()
+		defer dc.Close()
+		defer client.Close()
 		defer wg.Done()
 		for {
 			var msg *message

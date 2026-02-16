@@ -259,7 +259,7 @@ func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
 	return nil
 }
 
-func (s *MiddleProxyStream) CloseStream() error {
+func (s *MiddleProxyStream) Close() error {
 	s.closed.Store(true)
 	if s.middleProxyMsgStream == nil {
 		return nil
