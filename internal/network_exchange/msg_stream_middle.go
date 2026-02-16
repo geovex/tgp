@@ -192,6 +192,9 @@ func (m *MiddleProxyStream) ReadSrvMsg() (*message, error) {
 }
 
 func (m *MiddleProxyStream) WriteSrvMsg(msg *message) error {
+	if msg == nil || msg.data == nil {
+		return nil
+	}
 	var flags uint32
 	flags = tgcrypt_encryption.FlagHasAdTag | tgcrypt_encryption.FlagMagic | tgcrypt_encryption.FlagExtNode2
 	switch m.thisProtocol {
