@@ -9,17 +9,16 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
-// TODO: handle fallback here
-func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt_encryption.NonceSize]byte) (err error) {
+func (o *ClientHandler) handleObfClient(initialPacket tgcrypt_encryption.Nonce) (err error) {
+	if tgcrypt_encryption.IsWrongNonce(&initialPacket) {
+		return o.handleFallBack(initialPacket[:])
+	}
 	var user *string
 	for name := range o.config.IterateUsers() {
 		runtime.Gosched()
 		u, err := o.config.GetUser(name)
 		if err != nil {
 			panic("invalid name in user iteration")
-		}
-		if tgcrypt_encryption.IsWrongNonce(initialPacket) {
-			continue
 		}
 		userSecret, err := tgcrypt_encryption.NewSecretHex(u.Secret)
 		if err != nil {
