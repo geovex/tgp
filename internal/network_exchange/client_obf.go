@@ -9,6 +9,7 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
+// TODO: handle fallback here
 func (o *ClientHandler) handleObfClient(initialPacket [tgcrypt_encryption.NonceSize]byte) (err error) {
 	var user *string
 	for name := range o.config.IterateUsers() {

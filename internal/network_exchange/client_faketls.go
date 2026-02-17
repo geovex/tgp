@@ -9,6 +9,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	mrand "math/rand"
 	"runtime"
 	"sync"
@@ -17,14 +18,31 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt_encryption"
 )
 
-func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt_encryption.NonceSize]byte) (err error) {
-	var tlsHandshake [tgcrypt_encryption.FakeTlsHandshakeLen]byte
-	copy(tlsHandshake[:tgcrypt_encryption.FakeTlsHandshakeLen], initialPacket[:])
-	_, err = io.ReadFull(o.client, tlsHandshake[tgcrypt_encryption.NonceSize:])
-	var clientCtx *tgcrypt_encryption.FakeTlsCtx
+func (o *ClientHandler) handleFakeTls(initialPacket []byte) (err error) {
+	var tlsHandshake = make(
+		[]byte,
+		0,
+		tgcrypt_encryption.FakeTlsMinHandshakeLen+len(tgcrypt_encryption.FakeTlsStart)+2,
+	)
+	tlsHandshake = append(tlsHandshake, initialPacket[:]...)
+	var lenBuf [2]byte
+	n, err := io.ReadFull(o.client, lenBuf[:])
+	tlsHandshake = append(tlsHandshake, lenBuf[:n]...)
 	if err != nil {
-		return
+		return o.handleFallBack(tlsHandshake)
 	}
+	tlsPayloadLen := binary.BigEndian.Uint16(lenBuf[:])
+	log.Printf("tls payload len: %d", tlsPayloadLen)
+	if tlsPayloadLen < tgcrypt_encryption.FakeTlsMinHandshakeLen {
+		return o.handleFallBack(tlsHandshake)
+	}
+	tlsPayload := make([]byte, tlsPayloadLen)
+	n, err = io.ReadFull(o.client, tlsPayload)
+	tlsHandshake = append(tlsHandshake, tlsPayload[:n]...)
+	if err != nil {
+		return o.handleFallBack(tlsHandshake)
+	}
+	var clientCtx *tgcrypt_encryption.FakeTlsCtx
 	for name := range o.config.IterateUsers() {
 		runtime.Gosched()
 		u, err := o.config.GetUser(name)
@@ -45,7 +63,7 @@ func (o *ClientHandler) handleFakeTls(initialPacket [tgcrypt_encryption.NonceSiz
 		}
 	}
 	if o.user == nil {
-		return o.handleFallBack(tlsHandshake[:])
+		return o.handleFallBack(tlsHandshake)
 	}
 	o.statsHandle.SetAuthorized(o.user.Name)
 	err = o.transceiveFakeTls(clientCtx)

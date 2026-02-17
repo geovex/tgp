@@ -34,17 +34,22 @@ func NewClient(cfg *config.Config, statsHandle *stats.StatsHandle, client net.Co
 func (c *ClientHandler) HandleClient() (err error) {
 	defer c.client.Close()
 	defer c.statsHandle.Close()
-	var initialPacket tgcrypt_encryption.Nonce
+	initialPacket := make([]byte, len(tgcrypt_encryption.FakeTlsStart))
 	n, err := io.ReadFull(c.client, initialPacket[:])
 	if err != nil {
 		return c.handleFallBack(initialPacket[:n])
 	}
 	//check for tls in handshake
-	if bytes.Equal(initialPacket[0:len(tgcrypt_encryption.FakeTlsHeader)], tgcrypt_encryption.FakeTlsHeader[:]) {
+	if bytes.Equal(initialPacket, tgcrypt_encryption.FakeTlsStart[:]) {
 		return c.handleFakeTls(initialPacket)
-	} else {
-		return c.handleObfClient(initialPacket)
 	}
+	var noncePacket tgcrypt_encryption.Nonce
+	copy(noncePacket[:], initialPacket)
+	n, err = io.ReadFull(c.client, noncePacket[len(initialPacket):])
+	if err != nil {
+		return c.handleFallBack(noncePacket[:n+len(initialPacket)])
+	}
+	return c.handleObfClient(noncePacket)
 }
 
 var errNoFallbackHost = errors.New("no fallback host")
