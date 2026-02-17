@@ -180,11 +180,11 @@ func (m *MiddleProxyStream) ReadSrvMsg() (*message, error) {
 	} else if tgcrypt_encryption.RpcCloseExtTag == rpcTag {
 		fmt.Printf("End of middleproxy stream")
 		return nil, fmt.Errorf("end of middleproxy stream")
-	} else if tgcrypt_encryption.RpcUnknown == rpcTag {
-		newmsg := message{
-			data: nil,
-		}
-		return &newmsg, nil
+		// } else if tgcrypt_encryption.RpcUnknown == rpcTag {
+		// 	newmsg := message{
+		// 		data: nil,
+		// 	}
+		// 	return &newmsg, nil
 	} else {
 		fmt.Printf("Middleproxy message not parsed\n")
 		return nil, fmt.Errorf("middleproxy message not parsed")
