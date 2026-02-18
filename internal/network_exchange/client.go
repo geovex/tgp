@@ -40,6 +40,7 @@ func (c *ClientHandler) HandleClient() (err error) {
 		return c.handleFallBack(initialPacket[:n])
 	}
 	//check for tls in handshake
+	//TODO: consider smart fallback to obf in case of faketls-like nonce
 	if bytes.Equal(initialPacket, tgcrypt_encryption.FakeTlsStart[:]) {
 		return c.handleFakeTls(initialPacket)
 	}
