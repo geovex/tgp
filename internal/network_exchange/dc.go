@@ -40,9 +40,9 @@ func (dcc *DcDirectConnector) ConnectDC(dc int16) (stream io.ReadWriteCloser, er
 	if !dcc.allowIPv6 {
 		dcAddr6 = ""
 	}
-	c, err4, err6 := dialBoth(dcAddr4, dcAddr6, proxy.Direct)
-	if err4 != nil && err6 != nil {
-		return nil, fmt.Errorf("can't connect to dc %w, %w", err4, err6)
+	c, err := dialBoth(dcAddr4, dcAddr6, proxy.Direct)
+	if err != nil {
+		return nil, err
 	}
 	setNoDelay(c)
 	return c, err
@@ -112,9 +112,9 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (io.ReadWriteCloser, error) {
 	if !dsc.allowIPv6 {
 		dcAddr6 = ""
 	}
-	c, err4, err6 := dialBoth(dcAddr4, dcAddr6, dialer)
-	if err4 != nil && err6 != nil {
-		return nil, fmt.Errorf("can't connect to dc: %w, %w", err4, err6)
+	c, err := dialBoth(dcAddr4, dcAddr6, dialer)
+	if err != nil {
+		return nil, err
 	}
 	setNoDelay(c)
 	return c, nil
@@ -134,20 +134,21 @@ func (dsc *DcSocksConnector) ConnectHost(host string) (net.Conn, error) {
 }
 
 // Try to dial both ipv4 and ipv6 addresses and return resulting connection
-func dialBoth(host4, host6 string, dialer proxy.Dialer) (c net.Conn, err4, err6 error) {
+func dialBoth(host4, host6 string, dialer proxy.Dialer) (net.Conn, error) {
+	var err4, err6 error
 	if host6 != "" {
-		c, err6 = dialer.Dial("tcp", host6)
+		c, err6 := dialer.Dial("tcp", host6)
 		if err6 == nil {
-			return
+			return c, nil
 		}
 	} else {
 		err6 = fmt.Errorf("no ipv6 address specified")
 	}
-	c, err4 = dialer.Dial("tcp", host4)
+	c, err4 := dialer.Dial("tcp", host4)
 	if err4 != nil {
-		return nil, err4, err6
+		return nil, newDualstackError("can't connect to dc", err4, err6)
 	}
-	return
+	return c, nil
 }
 
 // if socks5 info is specified, return socks5 DcSocksConnector else return direct DcDirectConnector

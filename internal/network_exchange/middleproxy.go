@@ -236,16 +236,15 @@ func (m *MiddleProxyManager) connect(dc int16, client net.Conn, clientProtocol u
 // try to connect to ipv6 and (if this fails) to ipv4
 // only direct connections supported by Telegram middle-proxies (encryption is
 // based on IPs)
-// TODO: wrap error into struct
-func connect64(url4, url6 string) (c net.Conn, err error) {
+func connect64(url4, url6 string) (net.Conn, error) {
 	var err6, err4 error
 	if url6 != "" {
-		c, err6 = net.DialTimeout("tcp", url6, connectTimeout)
+		c, err6 := net.DialTimeout("tcp", url6, connectTimeout)
 		if err6 == nil {
 			return c, nil
 		}
 	}
-	c, err4 = net.DialTimeout("tcp", url4, connectTimeout)
+	c, err4 := net.DialTimeout("tcp", url4, connectTimeout)
 	if err4 == nil {
 		return c, nil
 	}
@@ -253,5 +252,5 @@ func connect64(url4, url6 string) (c net.Conn, err error) {
 	if ok {
 		tcp.SetNoDelay(false)
 	}
-	return nil, fmt.Errorf("can't connect to middle proxy %w %w", err4, err6)
+	return nil, newDualstackError("can't connect to mmiddleproxy", err4, err6)
 }
