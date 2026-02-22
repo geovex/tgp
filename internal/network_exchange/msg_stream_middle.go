@@ -236,6 +236,7 @@ func (m *MiddleProxyStream) Send(msg *message) error {
 	}
 	//ip6Cli := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 168, 0, 1}
 	fullmsg = append(fullmsg, ip6Cli[:]...)
+	// TODO: why uint32?
 	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.encryptionCtx.Out.Port()))
 	fullmsg = append(fullmsg, tgcrypt.ExtraSize[:]...)
 	fullmsg = append(fullmsg, tgcrypt.ProxyTag[:]...)
