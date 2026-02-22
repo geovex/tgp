@@ -5,7 +5,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 	"golang.org/x/net/proxy"
 )
 
@@ -33,7 +33,7 @@ func NewDcDirectConnector(allowIPv6 bool) *DcDirectConnector {
 
 // Connects client to the specified DC directly
 func (dcc *DcDirectConnector) ConnectDC(dc int16) (stream io.ReadWriteCloser, err error) {
-	dcAddr4, dcAddr6, err := tgcrypt_encryption.GetDcAddr(dc)
+	dcAddr4, dcAddr6, err := tgcrypt.GetDcAddr(dc)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (dsc *DcSocksConnector) ConnectDC(dc int16) (io.ReadWriteCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	dcAddr4, dcAddr6, err := tgcrypt_encryption.GetDcAddr(dc)
+	dcAddr4, dcAddr6, err := tgcrypt.GetDcAddr(dc)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +173,7 @@ func LoginDC(sock io.ReadWriteCloser, protocol uint8) *rawStream {
 }
 
 // in case you need to obfuscate connection to dc, you can do it
-func ObfuscateDC(sock io.ReadWriteCloser, ctx *tgcrypt_encryption.DcCtx) *obfuscatedStream {
+func ObfuscateDC(sock io.ReadWriteCloser, ctx *tgcrypt.DcCtx) *obfuscatedStream {
 	// TODO: handle negative dc
 	return newObfuscatedStream(sock, ctx, &ctx.Nonce, ctx.Protocol)
 }

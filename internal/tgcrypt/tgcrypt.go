@@ -1,5 +1,5 @@
 // Generate init packet
-package tgcrypt_encryption
+package tgcrypt
 
 import (
 	"crypto/aes"

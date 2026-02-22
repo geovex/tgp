@@ -6,11 +6,11 @@ import (
 
 	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/stats"
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
-func (o *ClientHandler) handleObfClient(initialPacket tgcrypt_encryption.Nonce) (err error) {
-	if tgcrypt_encryption.IsWrongNonce(&initialPacket) {
+func (o *ClientHandler) handleObfClient(initialPacket tgcrypt.Nonce) (err error) {
+	if tgcrypt.IsWrongNonce(&initialPacket) {
 		return o.handleFallBack(initialPacket[:])
 	}
 	var user *string
@@ -20,16 +20,16 @@ func (o *ClientHandler) handleObfClient(initialPacket tgcrypt_encryption.Nonce) 
 		if err != nil {
 			panic("invalid name in user iteration")
 		}
-		userSecret, err := tgcrypt_encryption.NewSecretHex(u.Secret)
+		userSecret, err := tgcrypt.NewSecretHex(u.Secret)
 		if err != nil {
 			continue
 		}
-		o.cliCtx, err = tgcrypt_encryption.ObfCtxFromNonce(initialPacket, userSecret)
+		o.cliCtx, err = tgcrypt.ObfCtxFromNonce(initialPacket, userSecret)
 		if err != nil {
 			continue
 		}
 		// basic afterchecks
-		if o.cliCtx.Dc > tgcrypt_encryption.DcMaxIdx || o.cliCtx.Dc < -tgcrypt_encryption.DcMaxIdx || o.cliCtx.Dc == 0 {
+		if o.cliCtx.Dc > tgcrypt.DcMaxIdx || o.cliCtx.Dc < -tgcrypt.DcMaxIdx || o.cliCtx.Dc == 0 {
 			continue
 		}
 		user = &u.Name

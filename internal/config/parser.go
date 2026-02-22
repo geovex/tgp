@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/BurntSushi/toml"
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 func ReadConfig(path string) (*Config, error) {
@@ -159,8 +159,8 @@ func checkUser(user *User) error {
 			if err != nil {
 				return fmt.Errorf("can't parse adtag: %w", err)
 			}
-			if len(adTag) != tgcrypt_encryption.AddTagLength {
-				return fmt.Errorf("adtag must be %d bytes", tgcrypt_encryption.AddTagLength)
+			if len(adTag) != tgcrypt.AddTagLength {
+				return fmt.Errorf("adtag must be %d bytes", tgcrypt.AddTagLength)
 			}
 		}
 	}

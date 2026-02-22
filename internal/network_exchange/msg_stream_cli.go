@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/geovex/tgp/internal/network_exchange/streams"
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 type clientStream struct {
@@ -36,7 +36,7 @@ func (s *clientStream) Recv() (m *message, err error) {
 	var seq uint32
 	var msgLen uint32
 	switch s.sock.Protocol() {
-	case tgcrypt_encryption.Abridged:
+	case tgcrypt.Abridged:
 		var l [4]byte
 		// read length
 		_, err = io.ReadFull(s.sock, l[:1])
@@ -61,7 +61,7 @@ func (s *clientStream) Recv() (m *message, err error) {
 		msgLen = msgLen * 4
 		// read message
 		msgbuf = make([]byte, msgLen)
-		if msgLen > tgcrypt_encryption.MaxPayloadSize {
+		if msgLen > tgcrypt.MaxPayloadSize {
 			err = fmt.Errorf("message too big: %d", msgLen)
 			return
 		}
@@ -70,7 +70,7 @@ func (s *clientStream) Recv() (m *message, err error) {
 			err = fmt.Errorf("failed to read message data: %w", err)
 			return
 		}
-	case tgcrypt_encryption.Intermediate, tgcrypt_encryption.Padded:
+	case tgcrypt.Intermediate, tgcrypt.Padded:
 		// read length
 		var l [4]byte
 		_, err = io.ReadFull(s.sock, l[:])
@@ -84,7 +84,7 @@ func (s *clientStream) Recv() (m *message, err error) {
 			msgLen &= 0x7fffffff
 		}
 		// read message
-		if msgLen > tgcrypt_encryption.MaxPayloadSize {
+		if msgLen > tgcrypt.MaxPayloadSize {
 			err = fmt.Errorf("message too big: %d", msgLen)
 			return
 		}
@@ -94,7 +94,7 @@ func (s *clientStream) Recv() (m *message, err error) {
 			err = fmt.Errorf("failed to read message data: %w", err)
 			return
 		}
-	case tgcrypt_encryption.Full:
+	case tgcrypt.Full:
 		// read length
 		var l [4]byte
 		_, err = io.ReadFull(s.sock, l[:])
@@ -108,7 +108,7 @@ func (s *clientStream) Recv() (m *message, err error) {
 			msgLen &= 0x7fffffff
 		}
 		// read message
-		if msgLen > tgcrypt_encryption.MaxPayloadSize+12 {
+		if msgLen > tgcrypt.MaxPayloadSize+12 {
 			err = fmt.Errorf("message too big: %d", msgLen)
 			return
 		}
@@ -141,7 +141,7 @@ func (s *clientStream) Recv() (m *message, err error) {
 func (s *clientStream) Send(m *message) (err error) {
 	sendmsg := make([]byte, 0, len(m.data)+20)
 	if m.quickack {
-		if s.sock.Protocol() == tgcrypt_encryption.Abridged {
+		if s.sock.Protocol() == tgcrypt.Abridged {
 			sendmsg = []byte{m.data[3], m.data[2], m.data[1], m.data[0]}
 			fmt.Printf("client write quickack abridged %v\n", sendmsg[:4])
 		} else {
@@ -155,7 +155,7 @@ func (s *clientStream) Send(m *message) (err error) {
 		return
 	}
 	switch s.sock.Protocol() {
-	case tgcrypt_encryption.Abridged:
+	case tgcrypt.Abridged:
 		l := uint32(len(m.data))
 		if l%4 != 0 {
 			return fmt.Errorf("message size not multiple of 4")
@@ -168,10 +168,10 @@ func (s *clientStream) Send(m *message) (err error) {
 			sendmsg = append(sendmsg, byte(l))
 		}
 		sendmsg = append(sendmsg, m.data...)
-	case tgcrypt_encryption.Intermediate, tgcrypt_encryption.Padded:
+	case tgcrypt.Intermediate, tgcrypt.Padded:
 		sendmsg = binary.LittleEndian.AppendUint32(sendmsg, uint32(len(m.data)))
 		sendmsg = append(sendmsg, m.data...)
-	case tgcrypt_encryption.Full:
+	case tgcrypt.Full:
 		sendmsg = make([]byte, 0, len(m.data)+12)
 		sendmsg = binary.LittleEndian.AppendUint32(sendmsg, uint32(len(m.data)))
 		sendmsg = binary.LittleEndian.AppendUint32(sendmsg, m.seq)

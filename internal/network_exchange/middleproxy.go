@@ -11,7 +11,7 @@ import (
 
 	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/maplist"
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 	"golang.org/x/net/proxy"
 )
 
@@ -89,7 +89,7 @@ func (m *MiddleProxyManager) updateProxyList() error {
 		},
 	}
 	// TODO: this can be in parallel
-	response, err := httpClient.Get(tgcrypt_encryption.MiddleSecretUrl)
+	response, err := httpClient.Get(tgcrypt.MiddleSecretUrl)
 	if err != nil {
 		return fmt.Errorf("failed to get proxy secret: %w", err)
 	}
@@ -114,12 +114,12 @@ func (m *MiddleProxyManager) updateProxyList() error {
 		return ipList, nil
 	}
 	// get ipv4 list
-	ip4List, err := getList(tgcrypt_encryption.MiddleConfigIp4, "4")
+	ip4List, err := getList(tgcrypt.MiddleConfigIp4, "4")
 	if err != nil {
 		return err
 	}
 	// get ipv6 list
-	ip6List, err := getList(tgcrypt_encryption.MiddleConfigIp6, "6")
+	ip6List, err := getList(tgcrypt.MiddleConfigIp6, "6")
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (m *MiddleProxyManager) connect(dc int16, client net.Conn, clientProtocol u
 		panic("failed to cast tcp connection")
 	}
 	this2middleTcp.SetNoDelay(true)
-	rs := newRawStream(this2middle, tgcrypt_encryption.Full)
+	rs := newRawStream(this2middle, tgcrypt.Full)
 	mps := NewMiddleProxyStream(rs, client, this2middle, addTag, clientProtocol)
 	if mps == nil {
 		panic(fmt.Errorf("failed to create middle proxy stream"))

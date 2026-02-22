@@ -11,7 +11,7 @@ import (
 	"github.com/geovex/tgp/internal/config"
 	"github.com/geovex/tgp/internal/network_exchange/streams"
 	"github.com/geovex/tgp/internal/stats"
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 type ClientHandler struct {
@@ -20,7 +20,7 @@ type ClientHandler struct {
 	config      *config.Config
 	// available after handshake
 	user      *config.User
-	cliCtx    *tgcrypt_encryption.ObfCtx
+	cliCtx    *tgcrypt.ObfCtx
 	cliStream streams.DataStream
 }
 
@@ -35,17 +35,17 @@ func NewClient(cfg *config.Config, statsHandle *stats.StatsHandle, client net.Co
 func (c *ClientHandler) HandleClient() (err error) {
 	defer c.client.Close()
 	defer c.statsHandle.Close()
-	initialPacket := make([]byte, len(tgcrypt_encryption.FakeTlsStart))
+	initialPacket := make([]byte, len(tgcrypt.FakeTlsStart))
 	n, err := io.ReadFull(c.client, initialPacket[:])
 	if err != nil {
 		return c.handleFallBack(initialPacket[:n])
 	}
 	//check for tls in handshake
 	//TODO: consider smart fallback to obf in case of faketls-like nonce
-	if bytes.Equal(initialPacket, tgcrypt_encryption.FakeTlsStart[:]) {
+	if bytes.Equal(initialPacket, tgcrypt.FakeTlsStart[:]) {
 		return c.handleFakeTls(initialPacket)
 	}
-	var noncePacket tgcrypt_encryption.Nonce
+	var noncePacket tgcrypt.Nonce
 	copy(noncePacket[:], initialPacket)
 	n, err = io.ReadFull(c.client, noncePacket[len(initialPacket):])
 	if err != nil {
@@ -100,7 +100,7 @@ func (c *ClientHandler) processWithConfig() (err error) {
 		}
 		var dcStream streams.DataStream
 		if c.user.Obfuscate != nil && *c.user.Obfuscate {
-			dcCtx := tgcrypt_encryption.DcCtxNew(c.cliCtx.Dc, c.cliCtx.Protocol)
+			dcCtx := tgcrypt.DcCtxNew(c.cliCtx.Dc, c.cliCtx.Protocol)
 			dcStream = ObfuscateDC(sock, dcCtx)
 			flags.Obfuscated = true
 		} else {

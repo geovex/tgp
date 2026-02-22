@@ -1,4 +1,4 @@
-package tgcrypt_encryption
+package tgcrypt
 
 import (
 	"bytes"

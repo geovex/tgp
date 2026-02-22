@@ -8,20 +8,20 @@ import (
 	"io"
 
 	"github.com/geovex/tgp/internal/network_exchange/streams"
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 // TODO: Do not implement read and write and use cypher padding
 
 type blockStream struct {
 	sock              streams.DataStream
-	ctx               *tgcrypt_encryption.MpCtx
+	ctx               *tgcrypt.MpCtx
 	readBuf, writeBuf []byte
 }
 
 var _ streams.DataStream = &blockStream{}
 
-func newBlockStream(sock streams.DataStream, ctx *tgcrypt_encryption.MpCtx) *blockStream {
+func newBlockStream(sock streams.DataStream, ctx *tgcrypt.MpCtx) *blockStream {
 	return &blockStream{
 		sock:     sock,
 		ctx:      ctx,
@@ -35,7 +35,7 @@ func (s *blockStream) Initiate() error {
 }
 
 func (s *blockStream) Protocol() uint8 {
-	return tgcrypt_encryption.Full
+	return tgcrypt.Full
 }
 
 func (s *blockStream) Read(b []byte) (n int, err error) {
@@ -83,8 +83,8 @@ func newMsgBlockStream(stream streams.DataStream, padding int) *msgBlockStream {
 }
 
 func (s *msgBlockStream) ReadMsg() (m *message, err error) {
-	l := tgcrypt_encryption.PaddingFiller
-	for bytes.Equal(l[:], tgcrypt_encryption.PaddingFiller[:]) {
+	l := tgcrypt.PaddingFiller
+	for bytes.Equal(l[:], tgcrypt.PaddingFiller[:]) {
 		_, err = io.ReadFull(s.bs, l[:])
 		if err != nil {
 			err = fmt.Errorf("failed to read message length: %w", err)
@@ -92,7 +92,7 @@ func (s *msgBlockStream) ReadMsg() (m *message, err error) {
 		}
 	}
 	msgLen := int(binary.LittleEndian.Uint32(l[:]))
-	if msgLen < 12 || msgLen > tgcrypt_encryption.MaxPayloadSize+12 {
+	if msgLen < 12 || msgLen > tgcrypt.MaxPayloadSize+12 {
 		err = fmt.Errorf("invalid message length: %d", msgLen)
 		return
 	}
@@ -135,7 +135,7 @@ func (s *msgBlockStream) WriteMsg(m *message) (err error) {
 	// log.Printf("len: %d, padlen: %d\n", len(buf), padlen)
 	padbuf := []byte{}
 	for len(padbuf) < padlen {
-		padbuf = append(padbuf, tgcrypt_encryption.PaddingFiller[:]...)
+		padbuf = append(padbuf, tgcrypt.PaddingFiller[:]...)
 	}
 	buf = append(buf, padbuf[:padlen]...)
 	_, err = s.bs.Write(buf)

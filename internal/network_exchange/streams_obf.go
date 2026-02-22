@@ -5,15 +5,15 @@ import (
 	"sync"
 
 	"github.com/geovex/tgp/internal/network_exchange/streams"
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 type obfuscatedStream struct {
 	r, w     sync.Mutex
 	stream   io.ReadWriteCloser
-	nonce    *tgcrypt_encryption.Nonce
+	nonce    *tgcrypt.Nonce
 	protocol uint8
-	obf      tgcrypt_encryption.Obfuscator
+	obf      tgcrypt.Obfuscator
 }
 
 var _ streams.DataStream = &obfuscatedStream{}
@@ -21,8 +21,8 @@ var _ streams.DataStream = &obfuscatedStream{}
 // create obfuscated stream if nonce is specified, initiate will send it once
 func newObfuscatedStream(
 	stream io.ReadWriteCloser,
-	enc tgcrypt_encryption.Obfuscator,
-	nonce *tgcrypt_encryption.Nonce,
+	enc tgcrypt.Obfuscator,
+	nonce *tgcrypt.Nonce,
 	protocol uint8,
 ) *obfuscatedStream {
 	return &obfuscatedStream{

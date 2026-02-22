@@ -15,14 +15,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 func (o *ClientHandler) handleFakeTls(initialPacket []byte) (err error) {
 	var tlsHandshake = make(
 		[]byte,
 		0,
-		tgcrypt_encryption.FakeTlsMinHandshakeLen+len(tgcrypt_encryption.FakeTlsStart)+2,
+		tgcrypt.FakeTlsMinHandshakeLen+len(tgcrypt.FakeTlsStart)+2,
 	)
 	tlsHandshake = append(tlsHandshake, initialPacket[:]...)
 	var lenBuf [2]byte
@@ -33,7 +33,7 @@ func (o *ClientHandler) handleFakeTls(initialPacket []byte) (err error) {
 	}
 	tlsPayloadLen := binary.BigEndian.Uint16(lenBuf[:])
 	log.Printf("tls payload len: %d", tlsPayloadLen)
-	if tlsPayloadLen < tgcrypt_encryption.FakeTlsMinHandshakeLen {
+	if tlsPayloadLen < tgcrypt.FakeTlsMinHandshakeLen {
 		return o.handleFallBack(tlsHandshake)
 	}
 	tlsPayload := make([]byte, tlsPayloadLen)
@@ -42,18 +42,18 @@ func (o *ClientHandler) handleFakeTls(initialPacket []byte) (err error) {
 	if err != nil {
 		return o.handleFallBack(tlsHandshake)
 	}
-	var clientCtx *tgcrypt_encryption.FakeTlsCtx
+	var clientCtx *tgcrypt.FakeTlsCtx
 	for name := range o.config.IterateUsers() {
 		runtime.Gosched()
 		u, err := o.config.GetUser(name)
 		if err != nil {
 			panic("invalid name in user iteration")
 		}
-		userSecret, err := tgcrypt_encryption.NewSecretHex(u.Secret)
+		userSecret, err := tgcrypt.NewSecretHex(u.Secret)
 		if err != nil {
 			continue
 		}
-		clientCtx, err = tgcrypt_encryption.FakeTlsCtxFromTlsHeader(tlsHandshake, userSecret)
+		clientCtx, err = tgcrypt.FakeTlsCtxFromTlsHeader(tlsHandshake, userSecret)
 		if err != nil {
 			continue
 		} else {
@@ -71,7 +71,7 @@ func (o *ClientHandler) handleFakeTls(initialPacket []byte) (err error) {
 	return err
 }
 
-func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt_encryption.FakeTlsCtx) error {
+func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt.FakeTlsCtx) error {
 	if !o.config.GetIgnoreTimestamp() {
 		// checking timestamp
 		skew := time.Now().UTC().Unix() - int64(cryptClient.Timestamp)
@@ -134,12 +134,12 @@ func (o *ClientHandler) transceiveFakeTls(cryptClient *tgcrypt_encryption.FakeTl
 		return err
 	}
 	fts := newFakeTlsStream(o.client)
-	var simpleHeader [tgcrypt_encryption.NonceSize]byte
+	var simpleHeader [tgcrypt.NonceSize]byte
 	_, err = io.ReadFull(fts, simpleHeader[:])
 	if err != nil {
 		return fmt.Errorf("can't read inner simple header: %w", err)
 	}
-	o.cliCtx, err = tgcrypt_encryption.ObfCtxFromNonce(simpleHeader, cryptClient.Secret)
+	o.cliCtx, err = tgcrypt.ObfCtxFromNonce(simpleHeader, cryptClient.Secret)
 	if err != nil {
 		return fmt.Errorf("can't create simple ctx from inner simple header: %w", err)
 	}

@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/geovex/tgp/internal/network_exchange/streams"
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 type rawStream struct {
@@ -31,15 +31,15 @@ func (s *rawStream) Initiate() error {
 	defer s.w.Unlock()
 	var header []byte
 	switch s.protocol {
-	case tgcrypt_encryption.Abridged:
-		header = []byte{tgcrypt_encryption.Abridged}
-	case tgcrypt_encryption.Intermediate:
-		const i = tgcrypt_encryption.Intermediate
+	case tgcrypt.Abridged:
+		header = []byte{tgcrypt.Abridged}
+	case tgcrypt.Intermediate:
+		const i = tgcrypt.Intermediate
 		header = []byte{i, i, i, i}
-	case tgcrypt_encryption.Padded:
-		const p = tgcrypt_encryption.Padded
+	case tgcrypt.Padded:
+		const p = tgcrypt.Padded
 		header = []byte{p, p, p, p}
-	case tgcrypt_encryption.Full: // do nothing for Full protocol
+	case tgcrypt.Full: // do nothing for Full protocol
 		return nil
 	default:
 		return fmt.Errorf("unknown protocol: %d", s.protocol)

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/geovex/tgp/internal/network_exchange/streams"
-	"github.com/geovex/tgp/internal/tgcrypt_encryption"
+	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
 type MiddleProxyStream struct {
@@ -19,13 +19,13 @@ type MiddleProxyStream struct {
 	closed        atomic.Bool // mostly for remove excessive logs and only log broken connection
 	thisProtocol  uint8
 	seq           uint32
-	encryptionCtx *tgcrypt_encryption.MiddleCtx
+	encryptionCtx *tgcrypt.MiddleCtx
 	// rpcType        []byte
 	// rpcKeySelector []byte
 	// rpcSchema      []byte
 	//rpcTimeStamp //not really needed after login
 	clientAddr           netip.AddrPort
-	middleProxyNonce     tgcrypt_encryption.RpcNonce
+	middleProxyNonce     tgcrypt.RpcNonce
 	middleProxySock      streams.DataStream
 	middleProxyMsgStream *msgBlockStream
 	connId               [8]byte
@@ -43,7 +43,7 @@ func NewMiddleProxyStream(mpStream streams.DataStream, client, mp net.Conn, addT
 	if !ok {
 		panic("middle proxy connection has no remote address")
 	}
-	ctx := tgcrypt_encryption.NewMiddleCtx(this2mpLocalTcpAddr.AddrPort(), middleProxyTcpAddr.AddrPort(), addTag)
+	ctx := tgcrypt.NewMiddleCtx(this2mpLocalTcpAddr.AddrPort(), middleProxyTcpAddr.AddrPort(), addTag)
 	seq := uint32(0)
 	seq -= 2
 	cli2thisAddr := client.RemoteAddr()
@@ -78,11 +78,11 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 	m.initiated = true
 	fmt.Println("initiating")
 	initialMsgData := make([]byte, 0, 32)
-	initialMsgData = append(initialMsgData, tgcrypt_encryption.RpcNonceTag[:]...)
+	initialMsgData = append(initialMsgData, tgcrypt.RpcNonceTag[:]...)
 	secret := mpm.GetSecret()
 	keySelector := secret[:4]
 	initialMsgData = append(initialMsgData, keySelector...) // key selector
-	initialMsgData = append(initialMsgData, tgcrypt_encryption.RpcCryptoAesTag[:]...)
+	initialMsgData = append(initialMsgData, tgcrypt.RpcCryptoAesTag[:]...)
 	timestampCli := binary.LittleEndian.AppendUint32([]byte{}, uint32((time.Now().Unix())%0x100000000))
 	initialMsgData = append(initialMsgData, timestampCli...) // crypto timestamp
 	initialMsgData = append(initialMsgData, m.encryptionCtx.CliNonce[:]...)
@@ -91,7 +91,7 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 		quickack: false,
 		seq:      m.seq,
 	}
-	middleProxyRawStream := newRawStream(m.middleProxySock, tgcrypt_encryption.Full)
+	middleProxyRawStream := newRawStream(m.middleProxySock, tgcrypt.Full)
 	middleProxyMsgStream := newMsgBlockStream(middleProxyRawStream, 32)
 	err = middleProxyMsgStream.WriteMsg(msg)
 	if err != nil {
@@ -112,15 +112,15 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 	//rpcTimeStamp := reply.data[12:16]
 	copy(m.middleProxyNonce[:], msg.data[16:32])
 	// TODO: check timestamp
-	if !bytes.Equal(rpcType, tgcrypt_encryption.RpcNonceTag[:]) ||
+	if !bytes.Equal(rpcType, tgcrypt.RpcNonceTag[:]) ||
 		!bytes.Equal(rpcKeySelector, keySelector) ||
-		!bytes.Equal(rpcSchema, tgcrypt_encryption.RpcCryptoAesTag[:]) {
+		!bytes.Equal(rpcSchema, tgcrypt.RpcCryptoAesTag[:]) {
 		return fmt.Errorf("invalid initial reply")
 	}
 	m.encryptionCtx.SetObf(m.middleProxyNonce[:], timestampCli, secret)
 	m.middleProxyMsgStream = newMsgBlockStream(newBlockStream(m.middleProxySock, m.encryptionCtx.Obf), 32) //m.ctx.Obf.BlockSize())
 	handshakeMsg := make([]byte, 0, 32)
-	handshakeMsg = append(handshakeMsg, tgcrypt_encryption.RpcHandShakeTag[:]...)
+	handshakeMsg = append(handshakeMsg, tgcrypt.RpcHandShakeTag[:]...)
 	handshakeMsg = append(handshakeMsg, 0, 0, 0, 0)                //rpc flags
 	handshakeMsg = append(handshakeMsg, []byte("IPIPPRPDTIME")...) //SENDER_PID
 	handshakeMsg = append(handshakeMsg, []byte("IPIPPRPDTIME")...) //PEER_PID
@@ -143,7 +143,7 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 	if len(msg.data) != 32 {
 		return fmt.Errorf("invalid encrypted handshake reply length: %d", len(msg.data))
 	}
-	if !bytes.Equal(msg.data[:4], tgcrypt_encryption.RpcHandShakeTag[:]) ||
+	if !bytes.Equal(msg.data[:4], tgcrypt.RpcHandShakeTag[:]) ||
 		!bytes.Equal(msg.data[20:32], []byte("IPIPPRPDTIME")) {
 		return fmt.Errorf("bad encrypted rpc handshake answer")
 	}
@@ -167,19 +167,19 @@ func (m *MiddleProxyStream) Recv() (*message, error) {
 	var rpcTag [4]byte
 	copy(rpcTag[:], msg.data[:4])
 	dataLen := len(msg.data)
-	if (tgcrypt_encryption.RpcProxyAnsTag == rpcTag) && dataLen > 16 {
+	if (tgcrypt.RpcProxyAnsTag == rpcTag) && dataLen > 16 {
 		newmsg := message{
 			data:     msg.data[16:],
 			quickack: false,
 		}
 		return &newmsg, nil
-	} else if (tgcrypt_encryption.RpcSimpleAckTag == rpcTag) && dataLen >= 16 {
+	} else if (tgcrypt.RpcSimpleAckTag == rpcTag) && dataLen >= 16 {
 		newmsg := message{
 			data:     msg.data[12:16],
 			quickack: true,
 		}
 		return &newmsg, nil
-	} else if tgcrypt_encryption.RpcCloseExtTag == rpcTag {
+	} else if tgcrypt.RpcCloseExtTag == rpcTag {
 		fmt.Printf("End of middleproxy stream")
 		return nil, fmt.Errorf("end of middleproxy stream")
 		// } else if tgcrypt_encryption.RpcUnknown == rpcTag {
@@ -198,26 +198,26 @@ func (m *MiddleProxyStream) Send(msg *message) error {
 		return nil
 	}
 	var flags uint32
-	flags = tgcrypt_encryption.FlagHasAdTag | tgcrypt_encryption.FlagMagic | tgcrypt_encryption.FlagExtNode2
+	flags = tgcrypt.FlagHasAdTag | tgcrypt.FlagMagic | tgcrypt.FlagExtNode2
 	switch m.thisProtocol {
-	case tgcrypt_encryption.Abridged:
-		flags |= tgcrypt_encryption.FlagAbbridged
-	case tgcrypt_encryption.Intermediate:
-		flags |= tgcrypt_encryption.FlagIntermediate
-	case tgcrypt_encryption.Padded:
-		flags |= tgcrypt_encryption.FlagIntermediate | tgcrypt_encryption.FlagPad
+	case tgcrypt.Abridged:
+		flags |= tgcrypt.FlagAbbridged
+	case tgcrypt.Intermediate:
+		flags |= tgcrypt.FlagIntermediate
+	case tgcrypt.Padded:
+		flags |= tgcrypt.FlagIntermediate | tgcrypt.FlagPad
 	default:
 		// TODO: consider panic here
 		return fmt.Errorf("unknown this protocol: %d", m.thisProtocol)
 	}
 	if msg.quickack {
-		flags |= tgcrypt_encryption.FlagQuickAck
+		flags |= tgcrypt.FlagQuickAck
 	}
 	if bytes.Equal(msg.data[:8], []byte{0, 0, 0, 0, 0, 0, 0, 0}) {
-		flags |= tgcrypt_encryption.FlagNotEncrypted
+		flags |= tgcrypt.FlagNotEncrypted
 	}
 	fullmsg := make([]byte, 0, 48+len(msg.data))
-	fullmsg = append(fullmsg, tgcrypt_encryption.RpcProxyReqTag[:]...)
+	fullmsg = append(fullmsg, tgcrypt.RpcProxyReqTag[:]...)
 	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, flags)
 	fullmsg = append(fullmsg, m.connId[:]...)
 	// TODO: option for obfuscation of client IP
@@ -237,8 +237,8 @@ func (m *MiddleProxyStream) Send(msg *message) error {
 	//ip6Cli := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 192, 168, 0, 1}
 	fullmsg = append(fullmsg, ip6Cli[:]...)
 	fullmsg = binary.LittleEndian.AppendUint32(fullmsg, uint32(m.encryptionCtx.Out.Port()))
-	fullmsg = append(fullmsg, tgcrypt_encryption.ExtraSize[:]...)
-	fullmsg = append(fullmsg, tgcrypt_encryption.ProxyTag[:]...)
+	fullmsg = append(fullmsg, tgcrypt.ExtraSize[:]...)
+	fullmsg = append(fullmsg, tgcrypt.ProxyTag[:]...)
 	fullmsg = append(fullmsg, uint8(len(m.encryptionCtx.AdTag)))
 	fullmsg = append(fullmsg, m.encryptionCtx.AdTag...)
 	// TODO: consider random padding
