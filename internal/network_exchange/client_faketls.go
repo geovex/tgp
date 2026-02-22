@@ -9,7 +9,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	mrand "math/rand"
 	"runtime"
 	"sync"
@@ -32,7 +31,7 @@ func (o *ClientHandler) handleFakeTls(initialPacket []byte) (err error) {
 		return o.handleFallBack(tlsHandshake)
 	}
 	tlsPayloadLen := binary.BigEndian.Uint16(lenBuf[:])
-	log.Printf("tls payload len: %d", tlsPayloadLen)
+	// log.Printf("tls payload len: %d", tlsPayloadLen)
 	if tlsPayloadLen < tgcrypt.FakeTlsMinHandshakeLen {
 		return o.handleFallBack(tlsHandshake)
 	}
