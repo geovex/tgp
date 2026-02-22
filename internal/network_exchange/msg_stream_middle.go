@@ -242,8 +242,9 @@ func (m *MiddleProxyStream) Send(msg *message) error {
 	fullmsg = append(fullmsg, tgcrypt.ProxyTag[:]...)
 	fullmsg = append(fullmsg, uint8(len(m.encryptionCtx.AdTag)))
 	fullmsg = append(fullmsg, m.encryptionCtx.AdTag...)
-	// TODO: consider random padding
-	fullmsg = append(fullmsg, 0, 0, 0) //allign bytes
+	var randBuf [3]byte
+	rand.Read(randBuf[:])
+	fullmsg = append(fullmsg, randBuf[:]...) //allign bytes (was 0,0,0)
 	data := msg.data[:len(msg.data)-len(msg.data)%4]
 	fullmsg = append(fullmsg, data...) //trim padded message
 
