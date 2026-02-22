@@ -118,6 +118,7 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 		return fmt.Errorf("invalid initial reply")
 	}
 	m.encryptionCtx.SetObf(m.middleProxyNonce[:], timestampCli, secret)
+	// TODO: add constant for 32 block size
 	m.middleProxyMsgStream = newMsgBlockStream(newBlockStream(m.middleProxySock, m.encryptionCtx.Obf), 32) //m.ctx.Obf.BlockSize())
 	handshakeMsg := make([]byte, 0, 32)
 	handshakeMsg = append(handshakeMsg, tgcrypt.RpcHandShakeTag[:]...)
