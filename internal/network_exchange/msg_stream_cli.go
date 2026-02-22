@@ -10,6 +10,7 @@ import (
 	"github.com/geovex/tgp/internal/tgcrypt"
 )
 
+// TODO: use facilities from msg_stream_raw
 type clientStream struct {
 	sock streams.DataStream
 }
