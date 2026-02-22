@@ -121,10 +121,15 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 	m.middleProxyMsgStream = newMsgBlockStream(newBlockStream(m.middleProxySock, m.encryptionCtx.Obf), 32) //m.ctx.Obf.BlockSize())
 	handshakeMsg := make([]byte, 0, 32)
 	handshakeMsg = append(handshakeMsg, tgcrypt.RpcHandShakeTag[:]...)
-	handshakeMsg = append(handshakeMsg, 0, 0, 0, 0)                //rpc flags
-	handshakeMsg = append(handshakeMsg, []byte("IPIPPRPDTIME")...) //SENDER_PID
-	handshakeMsg = append(handshakeMsg, []byte("IPIPPRPDTIME")...) //PEER_PID
-	//fmt.Println(hex.EncodeToString(handshakeMsg))
+	handshakeMsg = append(handshakeMsg, 0, 0, 0, 0) //rpc flags
+	// handshakeMsg = append(handshakeMsg, []byte("IPIPPRPDTIME")...) //SENDER_PID
+	// handshakeMsg = append(handshakeMsg, []byte("IPIPPRPDTIME")...) //PEER_PID
+	var senderPid [12]byte
+	rand.Read(senderPid[:])
+	handshakeMsg = append(handshakeMsg, senderPid[:]...) //senderPID
+	var peerPid [12]byte
+	rand.Read(peerPid[:])
+	handshakeMsg = append(handshakeMsg, peerPid[:]...) //peerPID
 	msg = &message{
 		data:     handshakeMsg,
 		quickack: false,
@@ -143,8 +148,9 @@ func (m *MiddleProxyStream) initiateReally() (err error) {
 	if len(msg.data) != 32 {
 		return fmt.Errorf("invalid encrypted handshake reply length: %d", len(msg.data))
 	}
+	// peerPID is different on middle
 	if !bytes.Equal(msg.data[:4], tgcrypt.RpcHandShakeTag[:]) ||
-		!bytes.Equal(msg.data[20:32], []byte("IPIPPRPDTIME")) {
+		!bytes.Equal(msg.data[20:32], senderPid[:]) {
 		return fmt.Errorf("bad encrypted rpc handshake answer")
 	}
 	// fill rest fields
