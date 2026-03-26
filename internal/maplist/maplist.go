@@ -28,7 +28,9 @@ func (m *MapList[K, V]) GetRandom(key K) (val V, ok bool) {
 	}
 	values_list_len := len(values_list)
 	if values_list_len == 0 {
-		return
+		panic("Maplist Key with zero length")
+		// delete(m.Data, key)
+		// return
 	}
 	randIdx := rand.Intn(values_list_len)
 	return values_list[randIdx], true
